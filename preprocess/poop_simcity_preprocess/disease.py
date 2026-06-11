@@ -1,6 +1,6 @@
 """Collapse disease snapshots into compact per-agent timelines."""
 
-from .constants import STATE_CODES, TICK_INTERVAL_SEC
+from .constants import STATE_CODE_NAMES, STATE_CODES, TICK_INTERVAL_SEC
 from .timeutil import time_to_tick
 
 
@@ -77,7 +77,7 @@ def build_disease(disease_df, start_time):
         for aid in sorted(transitions)
     ]
     return {
-        "stateCodes": {"S": 0, "E": 1, "I": 2, "R": 3},
+        "stateCodes": dict(STATE_CODE_NAMES),
         "agents": agents,
         "transmissions": transmissions,
     }

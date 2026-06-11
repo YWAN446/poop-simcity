@@ -7,6 +7,7 @@ import pyarrow.parquet as pq
 
 from .agents import build_agent_tracks
 from .aggregates import build_aggregates
+from .constants import STATE_CODES, VENUE_TYPES
 from .disease import build_disease
 from .manifest import build_manifest
 from .outbreak import detect_outbreak_window
@@ -18,6 +19,20 @@ def _read(dataset_dir, name):
     return pq.read_table(os.path.join(dataset_dir, f"{name}.parquet")).to_pandas()
 
 
+def _check_categories(series, allowed, label):
+    """Raise a clear error if a column contains values outside the known set.
+
+    Guards against cryptic downstream cast failures (NaN -> int) when a future
+    dataset introduces an unmapped venue type or disease status.
+    """
+    unknown = sorted(set(series.dropna().unique()) - set(allowed))
+    if unknown:
+        raise ValueError(
+            f"{label} contains unmapped values {unknown}; "
+            f"known values are {sorted(allowed)}"
+        )
+
+
 def build_bundle(dataset_dir, out_dir, run_id="dataset_00",
                  clean_keep_fraction=1.0, cell_size_deg=0.02):
     os.makedirs(out_dir, exist_ok=True)
@@ -26,8 +41,16 @@ def build_bundle(dataset_dir, out_dir, run_id="dataset_00",
     disease_df = _read(dataset_dir, "disease_status")
     poop_df = _read(dataset_dir, "poop_in")
 
-    start_time = check_in["time"].min()
-    end_time = check_in["time"].max()
+    _check_categories(check_in["venue_type"], VENUE_TYPES, "check_in.venue_type")
+    _check_categories(poop_df["venue_type"], VENUE_TYPES, "poop_in.venue_type")
+    _check_categories(disease_df["disease_status"], STATE_CODES,
+                      "disease_status.disease_status")
+
+    # Derive the time window from all inputs so no event yields a negative tick.
+    start_time = min(check_in["time"].min(), disease_df["time"].min(),
+                     poop_df["time"].min())
+    end_time = max(check_in["time"].max(), disease_df["time"].max(),
+                   poop_df["time"].max())
     num_agents = int(check_in["agent_id"].nunique())
     bbox = [
         float(check_in["longitude"].min()), float(check_in["latitude"].min()),

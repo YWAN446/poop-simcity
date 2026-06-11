@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pytest
 
 from poop_simcity_preprocess.build import build_bundle
 from poop_simcity_preprocess.encoding import AGENT_WAYPOINT_DTYPE, POOP_EVENT_DTYPE
@@ -78,3 +79,17 @@ def test_build_bundle_writes_consistent_artifacts(tmp_path):
     ww = json.loads((out_dir / "wastewater.json").read_text())
     assert ww["kind"] == "grid"
     assert len(ww["regions"]) >= 1
+
+
+def test_build_bundle_rejects_unmapped_category(tmp_path):
+    dataset_dir = tmp_path / "dataset_00"
+    out_dir = tmp_path / "bundle"
+    _write_synthetic(dataset_dir)
+
+    # Corrupt check_in with an unknown venue type, then re-write the parquet.
+    bad = pq.read_table(dataset_dir / "check_in.parquet").to_pandas()
+    bad.loc[0, "venue_type"] = "Spaceport"
+    pq.write_table(pa.Table.from_pandas(bad), dataset_dir / "check_in.parquet")
+
+    with pytest.raises(ValueError, match="Spaceport"):
+        build_bundle(str(dataset_dir), str(out_dir))

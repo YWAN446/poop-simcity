@@ -1,0 +1,30 @@
+# Raw simulation data (large parquet / 736MB CSV) — provided, not versioned here
+/dataset_00/
+
+# Source preprint and scratch extraction
+*.pdf
+/paper_text.txt
+/inspect_data.py
+/inspect2.py
+
+# Generated data bundle (built by the preprocessor)
+/app/public/data/
+
+# Node / web app
+node_modules/
+dist/
+.vite/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

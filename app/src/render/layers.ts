@@ -2,7 +2,7 @@ import { ScatterplotLayer, PolygonLayer, ArcLayer } from "@deck.gl/layers";
 import type { Bundle } from "../data/loadBundle";
 import { positionAtTick } from "../sim/interpolation";
 import { stateAtTick } from "../sim/diseaseState";
-import { STATE_COLORS, VENUE_COLORS, type RGBA } from "./theme";
+import { STATE_COLORS, VENUE_COLORS, dayNightTint, scaleRgb, type RGBA } from "./theme";
 import { hourBinIndex } from "../sim/timeMapping";
 
 export interface AgentDatum {
@@ -11,8 +11,9 @@ export interface AgentDatum {
 }
 
 /** Compute every agent's position + color at `tick`. */
-export function agentData(bundle: Bundle, tick: number): AgentDatum[] {
+export function agentData(bundle: Bundle, tick: number, hour: number): AgentDatum[] {
   const out: AgentDatum[] = [];
+  const tint = dayNightTint(hour);
   const { agents, agentSlice, transitionsByAgent } = bundle;
   for (const [agentId, slice] of agentSlice) {
     const pos = positionAtTick(
@@ -20,7 +21,7 @@ export function agentData(bundle: Bundle, tick: number): AgentDatum[] {
     );
     if (!pos) continue;
     const code = stateAtTick(transitionsByAgent.get(agentId) ?? [], tick);
-    out.push({ position: pos, color: STATE_COLORS[code] });
+    out.push({ position: pos, color: scaleRgb(STATE_COLORS[code], tint) });
   }
   return out;
 }

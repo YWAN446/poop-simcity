@@ -10,30 +10,41 @@ import {
   wastewaterData, makeWastewaterLayer, arcData, makeArcLayer,
 } from "../render/layers";
 import type { LayerFlags } from "./LayerToggles";
+import { tickToDate } from "../sim/timeMapping";
+import { dayNightTint } from "../render/theme";
 
 export function MapView({ bundle, tick, flags }: { bundle: Bundle; tick: number; flags: LayerFlags }) {
   const [minLon, minLat, maxLon, maxLat] = bundle.manifest.bbox;
+  const hour = tickToDate(bundle.manifest.startTime, bundle.manifest.tickIntervalSec, tick).getHours();
   const layers = useMemo(() => {
     const ls: Layer[] = [];
     if (flags.wastewater) ls.push(makeWastewaterLayer(wastewaterData(bundle, tick)));
     if (flags.venues) ls.push(makeVenueLayer(venueData(bundle)));
     if (flags.poops) ls.push(makePoopLayer(poopData(bundle, tick)));
     if (flags.arcs) ls.push(makeArcLayer(arcData(bundle, tick)));
-    if (flags.agents) ls.push(makeAgentLayer(agentData(bundle, tick)));
+    if (flags.agents) ls.push(makeAgentLayer(agentData(bundle, tick, hour)));
     return ls;
-  }, [bundle, tick, flags]);
+  }, [bundle, tick, flags, hour]);
+
+  const nightAlpha = Math.max(0, (1 - dayNightTint(hour)) * 0.6);
 
   return (
-    <Map
-      initialViewState={{
-        longitude: (minLon + maxLon) / 2,
-        latitude: (minLat + maxLat) / 2,
-        zoom: 9,
-      }}
-      mapStyle={GAME_MAP_STYLE}
-      style={{ position: "absolute", inset: 0 }}
-    >
-      <DeckOverlay layers={layers} interleaved />
-    </Map>
+    <>
+      <Map
+        initialViewState={{
+          longitude: (minLon + maxLon) / 2,
+          latitude: (minLat + maxLat) / 2,
+          zoom: 9,
+        }}
+        mapStyle={GAME_MAP_STYLE}
+        style={{ position: "absolute", inset: 0 }}
+      >
+        <DeckOverlay layers={layers} interleaved />
+      </Map>
+      <div
+        className="night-overlay"
+        style={{ background: `rgba(8,10,40,${nightAlpha})` }}
+      />
+    </>
   );
 }

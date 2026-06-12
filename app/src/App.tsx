@@ -39,7 +39,13 @@ function Playback({ bundle }: { bundle: Bundle }) {
         ticksPerSecond={ticksPerSecond}
         onSpeed={setTicksPerSecond}
       />
-      <button className="play-btn" onClick={() => setPlaying(!playing)}>
+      <button
+        className="play-btn"
+        onClick={() => {
+          if (!playing && tick >= range.max) seek(bundle.manifest.outbreakWindow.startTick);
+          setPlaying(!playing);
+        }}
+      >
         {playing ? "Pause" : "Play"}
       </button>
       <Timeline manifest={bundle.manifest} tick={tick} onSeek={seek} />

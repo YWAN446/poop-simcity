@@ -21,3 +21,7 @@ export function dayNightTint(hour: number): number {
   const t = Math.cos(((hour - 13) / 24) * 2 * Math.PI); // peak ~1pm
   return 0.675 + 0.325 * t;
 }
+
+export function scaleRgb(c: RGBA, k: number): RGBA {
+  return [Math.round(c[0] * k), Math.round(c[1] * k), Math.round(c[2] * k), c[3]];
+}

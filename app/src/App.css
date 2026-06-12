@@ -25,3 +25,5 @@ html, body, #root { margin: 0; height: 100%; }
   background: rgba(20,20,26,0.72); border-radius: 12px; color: #eee;
   font: 600 12px system-ui; backdrop-filter: blur(6px); }
 .layer-toggles label { display: flex; gap: 6px; align-items: center; text-transform: capitalize; cursor: pointer; }
+.night-overlay { position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  transition: background 1.2s linear; }

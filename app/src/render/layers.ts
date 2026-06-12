@@ -8,9 +8,14 @@ import { hourBinIndex } from "../sim/timeMapping";
 export interface AgentDatum {
   position: [number, number];
   color: RGBA;
+  code: number;
 }
 
-/** Compute every agent's position + color at `tick`. */
+// Draw priority so Exposed/Infectious render on top of the Susceptible/Recovered
+// crowd (deck.gl draws later data last). S=0, R=3 sit at the bottom; E then I top.
+const DRAW_PRIORITY: Record<number, number> = { 0: 0, 3: 1, 1: 2, 2: 3 };
+
+/** Compute every agent's position + color at `tick`, ordered so E/I draw on top. */
 export function agentData(bundle: Bundle, tick: number, hour: number): AgentDatum[] {
   const out: AgentDatum[] = [];
   const tint = dayNightTint(hour);
@@ -21,8 +26,9 @@ export function agentData(bundle: Bundle, tick: number, hour: number): AgentDatu
     );
     if (!pos) continue;
     const code = stateAtTick(transitionsByAgent.get(agentId) ?? [], tick);
-    out.push({ position: pos, color: scaleRgb(STATE_COLORS[code], tint) });
+    out.push({ position: pos, color: scaleRgb(STATE_COLORS[code], tint), code });
   }
+  out.sort((a, b) => DRAW_PRIORITY[a.code] - DRAW_PRIORITY[b.code]);
   return out;
 }
 

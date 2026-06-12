@@ -1,11 +1,13 @@
 export type RGBA = [number, number, number, number];
 
-// Disease state colors (indexed by code): S=teal, E=amber, I=warm red, R=muted green.
+// Disease state colors (indexed by code). Susceptible/Recovered are muted and
+// translucent so they recede into a calm backdrop; Exposed/Infectious are vivid
+// and fully opaque so an outbreak pops out of the crowd.
 export const STATE_COLORS: Record<number, RGBA> = {
-  0: [56, 178, 172, 200],
-  1: [237, 187, 79, 230],
-  2: [229, 80, 57, 240],
-  3: [120, 160, 120, 180],
+  0: [110, 158, 160, 95], // S — quiet desaturated teal
+  1: [245, 176, 48, 255], // E — vivid amber
+  2: [235, 62, 45, 255], // I — bold red
+  3: [140, 158, 140, 78], // R — faint gray-green
 };
 
 // Venue colors (indexed by venue type id): Apartment, Workplace, Restaurant, Pub.

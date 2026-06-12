@@ -21,6 +21,11 @@ export async function loadBundle(
   fetchFn: typeof fetch = fetch,
 ): Promise<Bundle> {
   const manifest = (await getJson(fetchFn, `${base}/manifest.json`)) as Manifest;
+  if (manifest.schemaVersion !== 1) {
+    throw new Error(
+      `Unsupported bundle schemaVersion ${manifest.schemaVersion} (expected 1)`,
+    );
+  }
   const a = manifest.artifacts;
 
   const [index, agentsBuf, disease, poopsBuf, aggregates, wastewater] =

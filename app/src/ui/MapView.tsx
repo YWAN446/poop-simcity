@@ -16,15 +16,18 @@ import { dayNightTint } from "../render/theme";
 export function MapView({ bundle, tick, flags }: { bundle: Bundle; tick: number; flags: LayerFlags }) {
   const [minLon, minLat, maxLon, maxLat] = bundle.manifest.bbox;
   const hour = tickToDate(bundle.manifest.startTime, bundle.manifest.tickIntervalSec, tick).getHours();
+  // Venues don't change with time; build the layer once per bundle to avoid an
+  // O(waypoints) dedup scan on every animation frame.
+  const venueLayer = useMemo(() => makeVenueLayer(venueData(bundle)), [bundle]);
   const layers = useMemo(() => {
     const ls: Layer[] = [];
     if (flags.wastewater) ls.push(makeWastewaterLayer(wastewaterData(bundle, tick)));
-    if (flags.venues) ls.push(makeVenueLayer(venueData(bundle)));
+    if (flags.venues) ls.push(venueLayer);
     if (flags.poops) ls.push(makePoopLayer(poopData(bundle, tick)));
     if (flags.arcs) ls.push(makeArcLayer(arcData(bundle, tick)));
     if (flags.agents) ls.push(makeAgentLayer(agentData(bundle, tick, hour)));
     return ls;
-  }, [bundle, tick, flags, hour]);
+  }, [bundle, tick, flags, hour, venueLayer]);
 
   const nightAlpha = Math.max(0, (1 - dayNightTint(hour)) * 0.6);
 

@@ -76,4 +76,21 @@ describe("loadBundle", () => {
     expect(bundle.aggregates.seir.S[0]).toBe(2);
     expect(bundle.wastewater.kind).toBe("grid");
   });
+
+  it("rejects an unsupported schemaVersion", async () => {
+    const base = "/data/dataset_00";
+    const badFetch = vi.fn(async (url: string) => {
+      const name = url.replace(base + "/", "");
+      const payload =
+        name === "manifest.json" ? { ...manifest, schemaVersion: 2 } : files[name];
+      return {
+        ok: true,
+        json: async () => payload,
+        arrayBuffer: async () => payload as ArrayBuffer,
+      } as Response;
+    });
+    await expect(
+      loadBundle(base, badFetch as unknown as typeof fetch),
+    ).rejects.toThrow(/schemaVersion/);
+  });
 });

@@ -73,6 +73,31 @@ export function makeAgentIconLayer(data: AgentDatum[]) {
   });
 }
 
+// Soft breathing halo behind Exposed/Infectious agents so an outbreak glows out
+// of the calm crowd. `pulse` in [0,1] modulates radius and alpha. Not day/night
+// tinted on purpose — infected should glow through the night.
+export function makeInfectionGlowLayer(data: AgentDatum[], pulse: number) {
+  return new ScatterplotLayer<AgentDatum>({
+    id: "infection-glow",
+    data,
+    getPosition: (d) => d.position,
+    getFillColor: (d) => {
+      const infectious = d.code === 2;
+      const alpha = Math.round((infectious ? 125 : 70) * (0.45 + 0.55 * pulse));
+      return (infectious
+        ? [235, 62, 45, alpha]
+        : [245, 176, 48, alpha]) as RGBA;
+    },
+    getRadius: (d) => (d.code === 2 ? 1300 : 950) * (0.8 + 0.4 * pulse),
+    radiusUnits: "meters",
+    radiusMinPixels: 9,
+    radiusMaxPixels: 46,
+    stroked: false,
+    pickable: false,
+    updateTriggers: { getFillColor: pulse, getRadius: pulse },
+  });
+}
+
 export interface VenueDatum { position: [number, number]; color: RGBA; }
 
 /** Unique venue positions (deduped by rounded lon/lat) colored by type. */

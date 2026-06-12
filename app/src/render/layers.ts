@@ -1,8 +1,9 @@
-import { ScatterplotLayer } from "@deck.gl/layers";
+import { ScatterplotLayer, PolygonLayer, ArcLayer } from "@deck.gl/layers";
 import type { Bundle } from "../data/loadBundle";
 import { positionAtTick } from "../sim/interpolation";
 import { stateAtTick } from "../sim/diseaseState";
 import { STATE_COLORS, VENUE_COLORS, type RGBA } from "./theme";
+import { hourBinIndex } from "../sim/timeMapping";
 
 export interface AgentDatum {
   position: [number, number];
@@ -107,5 +108,63 @@ export function makePoopLayer(data: PoopDatum[]) {
         : [150, 110, 70, Math.round(140 * (1 - d.age))] as [number, number, number, number],
     stroked: false,
     updateTriggers: { getFillColor: data, getRadius: data },
+  });
+}
+
+export interface WwDatum { polygon: [number, number][]; value: number; }
+
+export function wastewaterData(bundle: Bundle, tick: number): WwDatum[] {
+  const ww = bundle.wastewater;
+  const bin = hourBinIndex(Math.round(tick), bundle.manifest.tickIntervalSec, ww.cadenceSec);
+  return ww.regions.map((r) => ({
+    polygon: r.polygon,
+    value: ww.series[r.id]?.[Math.min(bin, (ww.series[r.id]?.length ?? 1) - 1)] ?? 0,
+  }));
+}
+
+export function makeWastewaterLayer(data: WwDatum[]) {
+  const max = data.reduce((m, d) => Math.max(m, d.value), 1);
+  return new PolygonLayer<WwDatum>({
+    id: "wastewater",
+    data,
+    getPolygon: (d) => d.polygon,
+    getFillColor: (d) => {
+      const t = Math.log10(d.value + 1) / Math.log10(max + 1);
+      return [60 + t * 160, 200 - t * 120, 90, Math.round(20 + t * 140)] as [number, number, number, number];
+    },
+    stroked: false,
+    extruded: false,
+    updateTriggers: { getFillColor: data },
+  });
+}
+
+export interface ArcDatum { source: [number, number]; target: [number, number]; age: number; }
+
+const ARC_WINDOW_TICKS = 288; // ~1 day
+
+export function arcData(bundle: Bundle, tick: number): ArcDatum[] {
+  const out: ArcDatum[] = [];
+  for (const [t, src, tgt] of bundle.disease.transmissions) {
+    if (t > tick || t < tick - ARC_WINDOW_TICKS) continue;
+    const s = bundle.agentSlice.get(src);
+    const g = bundle.agentSlice.get(tgt);
+    if (!s || !g) continue;
+    const sp = positionAtTick(bundle.agents.tick, bundle.agents.lon, bundle.agents.lat, s.offset, s.count, tick);
+    const gp = positionAtTick(bundle.agents.tick, bundle.agents.lon, bundle.agents.lat, g.offset, g.count, tick);
+    if (sp && gp) out.push({ source: sp, target: gp, age: (tick - t) / ARC_WINDOW_TICKS });
+  }
+  return out;
+}
+
+export function makeArcLayer(data: ArcDatum[]) {
+  return new ArcLayer<ArcDatum>({
+    id: "arcs",
+    data,
+    getSourcePosition: (d) => d.source,
+    getTargetPosition: (d) => d.target,
+    getSourceColor: (d) => [229, 80, 57, Math.round(220 * (1 - d.age))] as [number, number, number, number],
+    getTargetColor: (d) => [237, 187, 79, Math.round(220 * (1 - d.age))] as [number, number, number, number],
+    getWidth: 2,
+    updateTriggers: { getSourceColor: data, getTargetColor: data },
   });
 }

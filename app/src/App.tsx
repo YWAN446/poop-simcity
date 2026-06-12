@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useBundle } from "./hooks/useBundle";
 import { usePlayback } from "./hooks/usePlayback";
 import { MapView } from "./ui/MapView";
 import { Timeline } from "./ui/Timeline";
 import { Hud } from "./ui/Hud";
+import { LayerToggles, type LayerFlags } from "./ui/LayerToggles";
 import type { Bundle } from "./data/loadBundle";
 
 const BUNDLE_BASE = "/data/dataset_00";
@@ -25,9 +26,12 @@ function Playback({ bundle }: { bundle: Bundle }) {
     range,
     bundle.manifest.outbreakWindow.startTick,
   );
+  const [flags, setFlags] = useState<LayerFlags>({
+    agents: true, poops: true, venues: true, wastewater: false, arcs: false,
+  });
   return (
     <div className="app-shell">
-      <MapView bundle={bundle} tick={tick} />
+      <MapView bundle={bundle} tick={tick} flags={flags} />
       <Hud
         manifest={bundle.manifest}
         agg={bundle.aggregates}
@@ -39,6 +43,7 @@ function Playback({ bundle }: { bundle: Bundle }) {
         {playing ? "Pause" : "Play"}
       </button>
       <Timeline manifest={bundle.manifest} tick={tick} onSeek={seek} />
+      <LayerToggles flags={flags} onChange={setFlags} />
     </div>
   );
 }

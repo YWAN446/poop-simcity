@@ -20,3 +20,8 @@ html, body, #root { margin: 0; height: 100%; }
 .c-s { color: #38b2ac; } .c-e { color: #edbb4f; }
 .c-i { color: #e55039; } .c-r { color: #78a078; }
 .hud-speed { display: flex; flex-direction: column; font: 600 12px system-ui; gap: 4px; }
+.layer-toggles { position: absolute; right: 16px; bottom: 64px; z-index: 2;
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 12px;
+  background: rgba(20,20,26,0.72); border-radius: 12px; color: #eee;
+  font: 600 12px system-ui; backdrop-filter: blur(6px); }
+.layer-toggles label { display: flex; gap: 6px; align-items: center; text-transform: capitalize; cursor: pointer; }

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- White silhouette of a little character; used as a deck.gl mask icon
+       (tinted per-agent by disease-state color). Transparent background. -->
+  <g fill="#ffffff">
+    <!-- head -->
+    <circle cx="64" cy="34" r="20"/>
+    <!-- rounded body / little cloak -->
+    <path d="M64 50
+             C46 50 36 66 34 90
+             C33 102 40 116 64 116
+             C88 116 95 102 94 90
+             C92 66 82 50 64 50 Z"/>
+  </g>
+</svg>

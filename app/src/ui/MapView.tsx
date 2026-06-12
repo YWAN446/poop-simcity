@@ -6,7 +6,7 @@ import type { Bundle } from "../data/loadBundle";
 import { GAME_MAP_STYLE } from "../render/mapStyle";
 import { DeckOverlay } from "../render/DeckOverlay";
 import {
-  agentData, makeAgentLayer, venueData, makeVenueLayer, poopData, makePoopLayer,
+  agentData, makeAgentIconLayer, venueData, makeVenueLayer, poopData, makePoopLayer,
   wastewaterData, makeWastewaterLayer, arcData, makeArcLayer,
 } from "../render/layers";
 import type { LayerFlags } from "./LayerToggles";
@@ -25,7 +25,7 @@ export function MapView({ bundle, tick, flags }: { bundle: Bundle; tick: number;
     if (flags.venues) ls.push(venueLayer);
     if (flags.poops) ls.push(makePoopLayer(poopData(bundle, tick)));
     if (flags.arcs) ls.push(makeArcLayer(arcData(bundle, tick)));
-    if (flags.agents) ls.push(makeAgentLayer(agentData(bundle, tick, hour)));
+    if (flags.agents) ls.push(makeAgentIconLayer(agentData(bundle, tick, hour)));
     return ls;
   }, [bundle, tick, flags, hour, venueLayer]);
 

@@ -1,4 +1,4 @@
-import { ScatterplotLayer, PolygonLayer, ArcLayer } from "@deck.gl/layers";
+import { ScatterplotLayer, PolygonLayer, ArcLayer, IconLayer } from "@deck.gl/layers";
 import type { Bundle } from "../data/loadBundle";
 import { positionAtTick } from "../sim/interpolation";
 import { stateAtTick } from "../sim/diseaseState";
@@ -37,6 +37,33 @@ export function makeAgentLayer(data: AgentDatum[]) {
     radiusMaxPixels: 8,
     pickable: false,
     updateTriggers: { getFillColor: data },
+  });
+}
+
+// Little-character sprite tinted per agent by disease state. mask:true makes the
+// white silhouette take getColor; anchorY near the feet so characters "stand".
+const AGENT_ICON_MAPPING = {
+  marker: { x: 0, y: 0, width: 128, height: 128, mask: true, anchorY: 116 },
+};
+
+export function makeAgentIconLayer(data: AgentDatum[]) {
+  return new IconLayer<AgentDatum>({
+    id: "agents",
+    data,
+    iconAtlas: "/sprites/agent.png",
+    iconMapping: AGENT_ICON_MAPPING,
+    getIcon: () => "marker",
+    getPosition: (d) => d.position,
+    getColor: (d) => d.color,
+    // Sized in meters: a small "crowd" of dots at city zoom that grows into
+    // distinct little characters as you zoom in (clamped to a sane pixel range).
+    getSize: 1500,
+    sizeUnits: "meters",
+    sizeMinPixels: 5,
+    sizeMaxPixels: 34,
+    billboard: true,
+    alphaCutoff: 0.05,
+    updateTriggers: { getColor: data },
   });
 }
 

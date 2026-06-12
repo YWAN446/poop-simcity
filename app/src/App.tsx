@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useBundle } from "./hooks/useBundle";
 import { usePlayback } from "./hooks/usePlayback";
 import { MapView } from "./ui/MapView";
@@ -15,7 +16,10 @@ export default function App() {
 }
 
 function Playback({ bundle }: { bundle: Bundle }) {
-  const range = { min: 0, max: bundle.manifest.numTicks - 1 };
+  const range = useMemo(
+    () => ({ min: 0, max: bundle.manifest.numTicks - 1 }),
+    [bundle.manifest.numTicks],
+  );
   const { tick, playing, setPlaying, seek } = usePlayback(
     range,
     bundle.manifest.outbreakWindow.startTick,

@@ -6,12 +6,13 @@ import type { Bundle } from "../data/loadBundle";
 import { GAME_MAP_STYLE } from "../render/mapStyle";
 import { DeckOverlay } from "../render/DeckOverlay";
 import {
-  agentData, makeAgentIconLayer, venueData, makeVenueLayer, poopData, makePoopLayer,
-  wastewaterData, makeWastewaterLayer, arcData, makeArcLayer,
+  agentData, makeAgentIconLayer, makeInfectionGlowLayer, venueData, makeVenueLayer,
+  poopData, makePoopLayer, wastewaterData, makeWastewaterLayer, arcData, makeArcLayer,
 } from "../render/layers";
 import type { LayerFlags } from "./LayerToggles";
 import { tickToDate } from "../sim/timeMapping";
 import { dayNightTint } from "../render/theme";
+import { usePulse } from "../hooks/usePulse";
 
 export function MapView({ bundle, tick, flags }: { bundle: Bundle; tick: number; flags: LayerFlags }) {
   const [minLon, minLat, maxLon, maxLat] = bundle.manifest.bbox;
@@ -19,15 +20,31 @@ export function MapView({ bundle, tick, flags }: { bundle: Bundle; tick: number;
   // Venues don't change with time; build the layer once per bundle to avoid an
   // O(waypoints) dedup scan on every animation frame.
   const venueLayer = useMemo(() => makeVenueLayer(venueData(bundle)), [bundle]);
-  const layers = useMemo(() => {
+  const baseLayers = useMemo(() => {
     const ls: Layer[] = [];
     if (flags.wastewater) ls.push(makeWastewaterLayer(wastewaterData(bundle, tick)));
     if (flags.venues) ls.push(venueLayer);
     if (flags.poops) ls.push(makePoopLayer(poopData(bundle, tick)));
     if (flags.arcs) ls.push(makeArcLayer(arcData(bundle, tick)));
-    if (flags.agents) ls.push(makeAgentIconLayer(agentData(bundle, tick, hour)));
     return ls;
-  }, [bundle, tick, flags, hour, venueLayer]);
+  }, [bundle, tick, flags, venueLayer]);
+
+  // Agent positions/colors change only with tick/hour; the glow's pulse animates
+  // every frame, so keep the agents (and their icon layer) memoized and rebuild
+  // only the cheap glow layer per frame.
+  const agents = useMemo(() => agentData(bundle, tick, hour), [bundle, tick, hour]);
+  const agentIconLayer = useMemo(() => makeAgentIconLayer(agents), [agents]);
+  const glowData = useMemo(
+    () => agents.filter((a) => a.code === 1 || a.code === 2),
+    [agents],
+  );
+  const pulse = usePulse();
+
+  const layers: Layer[] = [...baseLayers];
+  if (flags.agents) {
+    if (glowData.length > 0) layers.push(makeInfectionGlowLayer(glowData, pulse));
+    layers.push(agentIconLayer);
+  }
 
   const nightAlpha = Math.max(0, (1 - dayNightTint(hour)) * 0.6);
 

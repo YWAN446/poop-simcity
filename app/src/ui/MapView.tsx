@@ -4,11 +4,17 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { Bundle } from "../data/loadBundle";
 import { GAME_MAP_STYLE } from "../render/mapStyle";
 import { DeckOverlay } from "../render/DeckOverlay";
-import { agentData, makeAgentLayer } from "../render/layers";
+import {
+  agentData, makeAgentLayer, venueData, makeVenueLayer, poopData, makePoopLayer,
+} from "../render/layers";
 
 export function MapView({ bundle, tick }: { bundle: Bundle; tick: number }) {
   const [minLon, minLat, maxLon, maxLat] = bundle.manifest.bbox;
-  const layers = useMemo(() => [makeAgentLayer(agentData(bundle, tick))], [bundle, tick]);
+  const venues = useMemo(() => makeVenueLayer(venueData(bundle)), [bundle]);
+  const layers = useMemo(
+    () => [venues, makePoopLayer(poopData(bundle, tick)), makeAgentLayer(agentData(bundle, tick))],
+    [venues, bundle, tick],
+  );
 
   return (
     <Map

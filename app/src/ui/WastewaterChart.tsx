@@ -16,7 +16,10 @@ export function WastewaterChart({ agg, hourBin }: { agg: Aggregates; hourBin: nu
       series: [{}, { label: "load", stroke: "#7a6baa", fill: "rgba(122,107,170,0.3)" }],
     };
     plot.current = new uPlot(opts, data, ref.current);
-    return () => plot.current?.destroy();
+    return () => {
+      plot.current?.destroy();
+      plot.current = null;
+    };
   }, [agg]);
 
   useEffect(() => {

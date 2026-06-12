@@ -23,7 +23,10 @@ export function SeirChart({ agg, hourBin }: { agg: Aggregates; hourBin: number }
       ],
     };
     plot.current = new uPlot(opts, data, ref.current);
-    return () => plot.current?.destroy();
+    return () => {
+      plot.current?.destroy();
+      plot.current = null;
+    };
   }, [agg]);
 
   useEffect(() => {

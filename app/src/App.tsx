@@ -3,6 +3,7 @@ import { useBundle } from "./hooks/useBundle";
 import { usePlayback } from "./hooks/usePlayback";
 import { MapView } from "./ui/MapView";
 import { Timeline } from "./ui/Timeline";
+import { Hud } from "./ui/Hud";
 import type { Bundle } from "./data/loadBundle";
 
 const BUNDLE_BASE = "/data/dataset_00";
@@ -20,13 +21,20 @@ function Playback({ bundle }: { bundle: Bundle }) {
     () => ({ min: 0, max: bundle.manifest.numTicks - 1 }),
     [bundle.manifest.numTicks],
   );
-  const { tick, playing, setPlaying, seek } = usePlayback(
+  const { tick, playing, setPlaying, seek, ticksPerSecond, setTicksPerSecond } = usePlayback(
     range,
     bundle.manifest.outbreakWindow.startTick,
   );
   return (
     <div className="app-shell">
       <MapView bundle={bundle} tick={tick} />
+      <Hud
+        manifest={bundle.manifest}
+        agg={bundle.aggregates}
+        tick={tick}
+        ticksPerSecond={ticksPerSecond}
+        onSpeed={setTicksPerSecond}
+      />
       <button className="play-btn" onClick={() => setPlaying(!playing)}>
         {playing ? "Pause" : "Play"}
       </button>

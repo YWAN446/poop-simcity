@@ -11,3 +11,12 @@ html, body, #root { margin: 0; height: 100%; }
 .play-btn { position: absolute; left: 16px; top: 16px; z-index: 2;
   padding: 8px 16px; border-radius: 999px; border: none; cursor: pointer;
   background: #e55039; color: white; font-weight: 600; }
+.hud { position: absolute; right: 16px; top: 16px; z-index: 2;
+  display: flex; flex-direction: column; gap: 8px; padding: 12px;
+  background: rgba(20,20,26,0.72); border-radius: 14px; color: #eee;
+  backdrop-filter: blur(6px); }
+.hud-clock { font: 600 14px ui-monospace, monospace; }
+.hud-counts { display: flex; gap: 10px; font: 600 13px system-ui; }
+.c-s { color: #38b2ac; } .c-e { color: #edbb4f; }
+.c-i { color: #e55039; } .c-r { color: #78a078; }
+.hud-speed { display: flex; flex-direction: column; font: 600 12px system-ui; gap: 4px; }

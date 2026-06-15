@@ -8,9 +8,10 @@ html, body, #root { margin: 0; height: 100%; }
   background: rgba(229, 80, 57, 0.35); border-radius: 3px; pointer-events: none;
 }
 .timeline input[type="range"] { width: 100%; }
-.play-btn { position: absolute; left: 16px; top: 16px; z-index: 2;
-  padding: 8px 16px; border-radius: 999px; border: none; cursor: pointer;
-  background: #e55039; color: white; font-weight: 600; }
+/* Bottom-left, above the timeline — clears the zoom controls at top-left. */
+.play-btn { position: absolute; left: 16px; bottom: 54px; z-index: 2;
+  padding: 8px 18px; border-radius: 999px; border: none; cursor: pointer;
+  background: #e55039; color: white; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
 .hud { position: absolute; right: 16px; top: 16px; z-index: 2;
   display: flex; flex-direction: column; gap: 8px; padding: 12px;
   background: rgba(20,20,26,0.72); border-radius: 14px; color: #eee;

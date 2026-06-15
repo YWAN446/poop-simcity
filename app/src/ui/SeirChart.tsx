@@ -6,16 +6,26 @@ import type { Aggregates } from "../types";
 export function SeirChart({ agg, hourBin }: { agg: Aggregates; hourBin: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const plot = useRef<uPlot | null>(null);
+  const startSec = Math.floor(new Date(agg.startTime).getTime() / 1000);
+  const cadence = agg.cadenceSec;
 
   useEffect(() => {
     if (!ref.current) return;
-    const x = agg.gridTicks.map((_, i) => i);
-    const data = [x, agg.seir.S, agg.seir.E, agg.seir.I, agg.seir.R] as uPlot.AlignedData;
+    const x = agg.gridTicks.map((_, i) => startSec + i * cadence);
+    const data = [
+      x,
+      agg.seir.S,
+      agg.seir.E,
+      agg.seir.I,
+      agg.seir.R,
+    ] as uPlot.AlignedData;
     const opts: uPlot.Options = {
-      width: 320, height: 120, title: "SEIR",
-      scales: { x: { time: false } },
+      width: 400,
+      height: 150,
+      title: "SEIR",
+      scales: { x: { time: true } },
       series: [
-        {},
+        { label: "Date" },
         { label: "S", stroke: "#38b2ac", fill: "rgba(56,178,172,0.2)" },
         { label: "E", stroke: "#edbb4f" },
         { label: "I", stroke: "#e55039", fill: "rgba(229,80,57,0.25)" },
@@ -27,13 +37,13 @@ export function SeirChart({ agg, hourBin }: { agg: Aggregates; hourBin: number }
       plot.current?.destroy();
       plot.current = null;
     };
-  }, [agg]);
+  }, [agg, startSec, cadence]);
 
   useEffect(() => {
     if (!plot.current) return;
-    const left = plot.current.valToPos(hourBin, "x");
+    const left = plot.current.valToPos(startSec + hourBin * cadence, "x");
     plot.current.setCursor({ left, top: 0 });
-  }, [hourBin]);
+  }, [hourBin, startSec, cadence]);
 
   return <div ref={ref} />;
 }

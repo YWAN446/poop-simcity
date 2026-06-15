@@ -158,9 +158,9 @@ export function makePoopLayer(data: PoopDatum[]) {
     id: "poops",
     data,
     getPosition: (d) => d.position,
-    getRadius: (d) => 60 + d.age * 120,
-    radiusMinPixels: 2,
-    radiusMaxPixels: 14,
+    getRadius: (d) => 140 + d.age * 220,
+    radiusMinPixels: 4,
+    radiusMaxPixels: 26,
     getFillColor: (d) =>
       d.infected
         ? [120, 200, 90, Math.round(200 * (1 - d.age))] as [number, number, number, number]

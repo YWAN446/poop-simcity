@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Map } from "react-map-gl/maplibre";
+import { Map, NavigationControl } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Layer } from "@deck.gl/core";
 import type { Bundle } from "../data/loadBundle";
@@ -19,21 +19,21 @@ export function MapView({ bundle, tick, flags }: { bundle: Bundle; tick: number;
   const hour = tickToDate(bundle.manifest.startTime, bundle.manifest.tickIntervalSec, tick).getHours();
   // Venues don't change with time; build the layer once per bundle to avoid an
   // O(waypoints) dedup scan on every animation frame.
-  const venueLayer = useMemo(() => makeVenueLayer(venueData(bundle)), [bundle]);
+  // Memoize the expensive DATA (venue dedup), but build fresh Layer instances each
+  // render. deck.gl layers are single-use descriptors — reusing one instance breaks
+  // re-adding a layer after it's been toggled off.
+  const venuePoints = useMemo(() => venueData(bundle), [bundle]);
   const baseLayers = useMemo(() => {
     const ls: Layer[] = [];
     if (flags.wastewater) ls.push(makeWastewaterLayer(wastewaterData(bundle, tick)));
-    if (flags.venues) ls.push(venueLayer);
+    if (flags.venues) ls.push(makeVenueLayer(venuePoints));
     if (flags.poops) ls.push(makePoopLayer(poopData(bundle, tick)));
     if (flags.arcs) ls.push(makeArcLayer(arcData(bundle, tick)));
     return ls;
-  }, [bundle, tick, flags, venueLayer]);
+  }, [bundle, tick, flags, venuePoints]);
 
-  // Agent positions/colors change only with tick/hour; the glow's pulse animates
-  // every frame, so keep the agents (and their icon layer) memoized and rebuild
-  // only the cheap glow layer per frame.
+  // Agent positions/colors change only with tick/hour; the glow pulses every frame.
   const agents = useMemo(() => agentData(bundle, tick, hour), [bundle, tick, hour]);
-  const agentIconLayer = useMemo(() => makeAgentIconLayer(agents), [agents]);
   const glowData = useMemo(
     () => agents.filter((a) => a.code === 1 || a.code === 2),
     [agents],
@@ -43,7 +43,7 @@ export function MapView({ bundle, tick, flags }: { bundle: Bundle; tick: number;
   const layers: Layer[] = [...baseLayers];
   if (flags.agents) {
     if (glowData.length > 0) layers.push(makeInfectionGlowLayer(glowData, pulse));
-    layers.push(agentIconLayer);
+    layers.push(makeAgentIconLayer(agents));
   }
 
   const nightAlpha = Math.max(0, (1 - dayNightTint(hour)) * 0.6);
@@ -60,6 +60,7 @@ export function MapView({ bundle, tick, flags }: { bundle: Bundle; tick: number;
         style={{ position: "absolute", inset: 0 }}
       >
         <DeckOverlay layers={layers} interleaved />
+        <NavigationControl position="top-left" showCompass={false} />
       </Map>
       <div
         className="night-overlay"

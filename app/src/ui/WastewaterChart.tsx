@@ -2,6 +2,13 @@ import { useEffect, useRef } from "react";
 import uPlot from "uplot";
 import type { Aggregates } from "../types";
 
+const DATE_FMT: Intl.DateTimeFormatOptions = {
+  month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+};
+const NUM_FMT = new Intl.NumberFormat(undefined, {
+  notation: "compact", maximumFractionDigits: 2,
+});
+
 export function WastewaterChart({ agg, hourBin }: { agg: Aggregates; hourBin: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const plot = useRef<uPlot | null>(null);
@@ -10,14 +17,13 @@ export function WastewaterChart({ agg, hourBin }: { agg: Aggregates; hourBin: nu
 
   useEffect(() => {
     if (!ref.current) return;
-    // x is real time (unix seconds) so uPlot labels the axis and cursor readout
-    // with dates/hours rather than bin indices.
     const x = agg.pathogenInflow.map((_, i) => startSec + i * cadence);
     const data = [x, agg.pathogenInflow] as uPlot.AlignedData;
     const opts: uPlot.Options = {
       width: 400,
       height: 210,
       title: "Number of Pathogen in Wastewater",
+      legend: { show: false },
       scales: { x: { time: true } },
       series: [
         { label: "Date" },
@@ -37,5 +43,19 @@ export function WastewaterChart({ agg, hourBin }: { agg: Aggregates; hourBin: nu
     plot.current.setCursor({ left, top: 0 });
   }, [hourBin, startSec, cadence]);
 
-  return <div ref={ref} />;
+  const dateStr = new Date((startSec + hourBin * cadence) * 1000).toLocaleString(
+    undefined,
+    DATE_FMT,
+  );
+  return (
+    <div className="chart-block">
+      <div ref={ref} />
+      <div className="chart-readout">
+        <div className="readout-date">{dateStr}</div>
+        <div className="readout-values">
+          <span className="c-path">Pathogen {NUM_FMT.format(agg.pathogenInflow[hourBin] ?? 0)}</span>
+        </div>
+      </div>
+    </div>
+  );
 }

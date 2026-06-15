@@ -7,8 +7,9 @@
 /inspect_data.py
 /inspect2.py
 
-# Generated data bundle (built by the preprocessor)
-/app/public/data/
+# The generated data bundle IS committed (so the app runs from a fresh clone
+# without needing Python or the raw simulation data). Regenerate it with the
+# preprocessor if needed — see the README.
 
 # Node / web app
 node_modules/

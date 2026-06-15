@@ -1,5 +1,7 @@
 # Poop SimCity 🚽🏙️
 
+**▶️ Live demo: https://poop-simcity.pages.dev** — no install needed, just open it.
+
 A web-based, game-flavored visualizer for the agent-based wastewater-epidemiology
 simulation in **"Where do We Poop? City-Wide Simulation of Defecation Behavior for
 Wastewater-Based Epidemiology"** ([arXiv:2601.04231](https://arxiv.org/abs/2601.04231)).
@@ -97,6 +99,18 @@ python verify_bundle.py   # sanity-checks the generated bundle
 
 The raw simulation data and the original simulation framework are available from
 the paper's project: <https://github.com/onspatial/wastewater-based-epidemiology-patterns-of-life>.
+
+---
+
+### Deploying / updating the live site
+The live demo is hosted free on **Cloudflare Pages** (static files only — no
+backend). To publish an update, from `app/`:
+
+```bash
+npm run deploy   # builds, then uploads dist/ to the poop-simcity Pages project
+```
+
+(First time on a new machine: `npx wrangler login` once to authorize Cloudflare.)
 
 ---
 

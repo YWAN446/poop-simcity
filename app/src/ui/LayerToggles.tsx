@@ -2,6 +2,15 @@ export interface LayerFlags {
   venues: boolean; poops: boolean; agents: boolean; wastewater: boolean; arcs: boolean;
 }
 
+// Human-readable labels for each flag (the `arcs` layer draws transmission links).
+const LAYER_LABELS: Record<keyof LayerFlags, string> = {
+  agents: "Agents",
+  poops: "Poops",
+  venues: "Venues",
+  wastewater: "Wastewater",
+  arcs: "Transmissions",
+};
+
 export function LayerToggles({
   flags, onChange,
 }: { flags: LayerFlags; onChange: (f: LayerFlags) => void }) {
@@ -15,7 +24,7 @@ export function LayerToggles({
             checked={flags[k]}
             onChange={(e) => onChange({ ...flags, [k]: e.target.checked })}
           />
-          {k}
+          {LAYER_LABELS[k]}
         </label>
       ))}
     </div>

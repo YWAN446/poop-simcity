@@ -44,3 +44,8 @@ html, body, #root { margin: 0; height: 100%; }
 .legend-swatch { width: 12px; height: 12px; border-radius: 3px; flex: none;
   box-shadow: 0 0 0 1px rgba(255,255,255,0.18); }
 .legend-count { opacity: 0.55; }
+.legend-gradient { height: 10px; border-radius: 3px; margin-top: 2px;
+  background: linear-gradient(90deg, rgb(60,200,90), rgb(140,140,90), rgb(220,80,90));
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.18); }
+.legend-gradient-labels { display: flex; justify-content: space-between;
+  font: 600 10px system-ui; opacity: 0.6; margin-top: 2px; }

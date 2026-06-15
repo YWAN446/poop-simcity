@@ -7,7 +7,8 @@ import { GAME_MAP_STYLE } from "../render/mapStyle";
 import { DeckOverlay } from "../render/DeckOverlay";
 import {
   agentData, makeAgentIconLayer, makeInfectionGlowLayer, venueData, makeVenueLayer,
-  poopData, makePoopLayer, wastewaterData, makeWastewaterLayer, arcData, makeArcLayer,
+  poopData, makePoopLayer, wastewaterData, makeWastewaterLayer, wastewaterGlobalMax,
+  arcData, makeArcLayer,
 } from "../render/layers";
 import type { LayerFlags } from "./LayerToggles";
 import { tickToDate } from "../sim/timeMapping";
@@ -23,14 +24,15 @@ export function MapView({ bundle, tick, flags }: { bundle: Bundle; tick: number;
   // render. deck.gl layers are single-use descriptors — reusing one instance breaks
   // re-adding a layer after it's been toggled off.
   const venuePoints = useMemo(() => venueData(bundle), [bundle]);
+  const wwMax = useMemo(() => wastewaterGlobalMax(bundle), [bundle]);
   const baseLayers = useMemo(() => {
     const ls: Layer[] = [];
-    if (flags.wastewater) ls.push(makeWastewaterLayer(wastewaterData(bundle, tick)));
+    if (flags.wastewater) ls.push(makeWastewaterLayer(wastewaterData(bundle, tick), wwMax));
     if (flags.venues) ls.push(makeVenueLayer(venuePoints));
     if (flags.poops) ls.push(makePoopLayer(poopData(bundle, tick)));
     if (flags.arcs) ls.push(makeArcLayer(arcData(bundle, tick)));
     return ls;
-  }, [bundle, tick, flags, venuePoints]);
+  }, [bundle, tick, flags, venuePoints, wwMax]);
 
   // Agent positions/colors change only with tick/hour; the glow pulses every frame.
   const agents = useMemo(() => agentData(bundle, tick, hour), [bundle, tick, hour]);

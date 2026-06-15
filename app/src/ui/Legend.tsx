@@ -52,6 +52,14 @@ export function Legend({ venueCounts }: { venueCounts: Record<number, number> })
               </div>
             ))}
           </div>
+          <div className="legend-section">
+            <div className="legend-title">Wastewater pathogen</div>
+            <div className="legend-gradient" />
+            <div className="legend-gradient-labels">
+              <span>low</span>
+              <span>high</span>
+            </div>
+          </div>
         </div>
       )}
     </div>

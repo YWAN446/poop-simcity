@@ -207,19 +207,30 @@ export function wastewaterData(bundle: Bundle, tick: number): WwDatum[] {
   }));
 }
 
-export function makeWastewaterLayer(data: WwDatum[]) {
-  const max = data.reduce((m, d) => Math.max(m, d.value), 1);
+/** Largest per-cell pathogen value across all cells and all time bins. Used to
+ *  color the wastewater layer on an absolute scale so colors are comparable over
+ *  time (the reddest cell always means the same load, not just the current peak). */
+export function wastewaterGlobalMax(bundle: Bundle): number {
+  let max = 1;
+  for (const series of Object.values(bundle.wastewater.series)) {
+    for (const v of series) if (v > max) max = v;
+  }
+  return max;
+}
+
+export function makeWastewaterLayer(data: WwDatum[], max: number) {
+  const logMax = Math.log10(max + 1);
   return new PolygonLayer<WwDatum>({
     id: "wastewater",
     data,
     getPolygon: (d) => d.polygon,
     getFillColor: (d) => {
-      const t = Math.log10(d.value + 1) / Math.log10(max + 1);
+      const t = Math.log10(d.value + 1) / logMax; // 0 (green) .. 1 (red), log-scaled
       return [60 + t * 160, 200 - t * 120, 90, Math.round(20 + t * 140)] as [number, number, number, number];
     },
     stroked: false,
     extruded: false,
-    updateTriggers: { getFillColor: data },
+    updateTriggers: { getFillColor: [data, max] },
   });
 }
 

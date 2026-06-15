@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- White silhouette of a coiled poop pile; used as a deck.gl mask icon, tinted
+       brown (clean) or green (pathogen-bearing) per event. Transparent background. -->
+  <g fill="#ffffff">
+    <!-- bottom coil (widest) -->
+    <ellipse cx="64" cy="102" rx="48" ry="22"/>
+    <!-- middle coil -->
+    <ellipse cx="60" cy="76" rx="36" ry="20"/>
+    <!-- upper coil -->
+    <ellipse cx="66" cy="54" rx="24" ry="16"/>
+    <!-- swirl tip -->
+    <path d="M66 22
+             c 12 0 16 12 8 18
+             c -6 4 -16 3 -18 -3
+             c -1 -3 1 -6 4 -6
+             c 3 0 4 2 3 4
+             c 6 1 8 -7 1 -9
+             c -6 -2 -12 2 -12 8 Z"/>
+  </g>
+</svg>

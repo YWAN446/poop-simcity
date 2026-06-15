@@ -153,20 +153,33 @@ export function poopData(bundle: Bundle, tick: number): PoopDatum[] {
   return out;
 }
 
+// Poop-pile sprite, tinted per event (green = pathogen-bearing, brown = clean)
+// and faded by age. mask:true makes the white silhouette take getColor; the
+// anchor sits at the base so the pile "rests" on its location.
+const POOP_ICON_MAPPING = {
+  poop: { x: 0, y: 0, width: 128, height: 128, mask: true, anchorY: 122 },
+};
+
 export function makePoopLayer(data: PoopDatum[]) {
-  return new ScatterplotLayer<PoopDatum>({
+  return new IconLayer<PoopDatum>({
     id: "poops",
     data,
+    iconAtlas: "/sprites/poop.png",
+    iconMapping: POOP_ICON_MAPPING,
+    getIcon: () => "poop",
     getPosition: (d) => d.position,
-    getRadius: (d) => 140 + d.age * 220,
-    radiusMinPixels: 4,
-    radiusMaxPixels: 26,
-    getFillColor: (d) =>
+    getColor: (d) =>
       d.infected
-        ? [120, 200, 90, Math.round(200 * (1 - d.age))] as [number, number, number, number]
-        : [150, 110, 70, Math.round(140 * (1 - d.age))] as [number, number, number, number],
-    stroked: false,
-    updateTriggers: { getFillColor: data, getRadius: data },
+        ? [120, 200, 90, Math.round(225 * (1 - d.age))] as [number, number, number, number]
+        : [150, 110, 70, Math.round(195 * (1 - d.age))] as [number, number, number, number],
+    // Grows as the splash ages; sized in meters so it scales with zoom (clamped).
+    getSize: (d) => 700 + d.age * 800,
+    sizeUnits: "meters",
+    sizeMinPixels: 11,
+    sizeMaxPixels: 40,
+    billboard: true,
+    alphaCutoff: 0.05,
+    updateTriggers: { getColor: data, getSize: data },
   });
 }
 

@@ -153,7 +153,7 @@ export function poopData(bundle: Bundle, tick: number): PoopDatum[] {
   return out;
 }
 
-// Poop-pile sprite, tinted per event (green = pathogen-bearing, brown = clean)
+// Poop-pile sprite, tinted per event (red = pathogen-bearing, brown = clean)
 // and faded by age. mask:true makes the white silhouette take getColor; the
 // anchor sits at the base so the pile "rests" on its location.
 const POOP_ICON_MAPPING = {
@@ -170,7 +170,7 @@ export function makePoopLayer(data: PoopDatum[]) {
     getPosition: (d) => d.position,
     getColor: (d) =>
       d.infected
-        ? [120, 200, 90, Math.round(225 * (1 - d.age))] as [number, number, number, number]
+        ? [230, 60, 48, Math.round(230 * (1 - d.age))] as [number, number, number, number]
         : [150, 110, 70, Math.round(195 * (1 - d.age))] as [number, number, number, number],
     // Grows as the splash ages; sized in meters so it scales with zoom (clamped).
     getSize: (d) => 700 + d.age * 800,

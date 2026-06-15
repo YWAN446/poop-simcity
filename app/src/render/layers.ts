@@ -116,6 +116,19 @@ export function venueData(bundle: Bundle): VenueDatum[] {
   return [...seen.values()];
 }
 
+/** Count of distinct venue positions by venue type id (drives the legend). */
+export function countVenuesByType(bundle: Bundle): Record<number, number> {
+  const seen = new Map<string, number>();
+  const { agents } = bundle;
+  for (let i = 0; i < agents.count; i++) {
+    const key = `${agents.lon[i].toFixed(4)},${agents.lat[i].toFixed(4)}`;
+    if (!seen.has(key)) seen.set(key, agents.vtype[i]);
+  }
+  const counts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
+  for (const v of seen.values()) counts[v] = (counts[v] ?? 0) + 1;
+  return counts;
+}
+
 export function makeVenueLayer(data: VenueDatum[]) {
   return new ScatterplotLayer<VenueDatum>({
     id: "venues",

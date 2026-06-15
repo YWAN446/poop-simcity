@@ -5,6 +5,8 @@ import { MapView } from "./ui/MapView";
 import { Timeline } from "./ui/Timeline";
 import { Hud } from "./ui/Hud";
 import { LayerToggles, type LayerFlags } from "./ui/LayerToggles";
+import { Legend } from "./ui/Legend";
+import { countVenuesByType } from "./render/layers";
 import type { Bundle } from "./data/loadBundle";
 
 const BUNDLE_BASE = "/data/dataset_00";
@@ -29,9 +31,11 @@ function Playback({ bundle }: { bundle: Bundle }) {
   const [flags, setFlags] = useState<LayerFlags>({
     agents: true, poops: true, venues: true, wastewater: false, arcs: false,
   });
+  const venueCounts = useMemo(() => countVenuesByType(bundle), [bundle]);
   return (
     <div className="app-shell">
       <MapView bundle={bundle} tick={tick} flags={flags} />
+      <Legend venueCounts={venueCounts} />
       <Hud
         manifest={bundle.manifest}
         agg={bundle.aggregates}

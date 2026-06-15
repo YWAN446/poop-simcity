@@ -3,6 +3,10 @@ import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import type { Aggregates } from "../types";
 
+const DATE_FMT: Intl.DateTimeFormatOptions = {
+  month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+};
+
 export function SeirChart({ agg, hourBin }: { agg: Aggregates; hourBin: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const plot = useRef<uPlot | null>(null);
@@ -23,6 +27,7 @@ export function SeirChart({ agg, hourBin }: { agg: Aggregates; hourBin: number }
       width: 400,
       height: 150,
       title: "SEIR",
+      legend: { show: false },
       scales: { x: { time: true } },
       series: [
         { label: "Date" },
@@ -45,5 +50,22 @@ export function SeirChart({ agg, hourBin }: { agg: Aggregates; hourBin: number }
     plot.current.setCursor({ left, top: 0 });
   }, [hourBin, startSec, cadence]);
 
-  return <div ref={ref} />;
+  const dateStr = new Date((startSec + hourBin * cadence) * 1000).toLocaleString(
+    undefined,
+    DATE_FMT,
+  );
+  return (
+    <div className="chart-block">
+      <div ref={ref} />
+      <div className="chart-readout">
+        <div className="readout-date">{dateStr}</div>
+        <div className="readout-values">
+          <span className="c-s">S {agg.seir.S[hourBin]}</span>
+          <span className="c-e">E {agg.seir.E[hourBin]}</span>
+          <span className="c-i">I {agg.seir.I[hourBin]}</span>
+          <span className="c-r">R {agg.seir.R[hourBin]}</span>
+        </div>
+      </div>
+    </div>
+  );
 }

@@ -2,6 +2,8 @@
 
 **▶️ Live demo: https://poop-simcity.pages.dev** — no install needed, just open it.
 
+See [ROADMAP.md](ROADMAP.md) for what's built and what's planned.
+
 A web-based, game-flavored visualizer for the agent-based wastewater-epidemiology
 simulation in **"Where do We Poop? City-Wide Simulation of Defecation Behavior for
 Wastewater-Based Epidemiology"** ([arXiv:2601.04231](https://arxiv.org/abs/2601.04231)).

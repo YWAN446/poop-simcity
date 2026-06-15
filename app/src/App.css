@@ -31,3 +31,16 @@ html, body, #root { margin: 0; height: 100%; }
 .layer-toggles label { display: flex; gap: 6px; align-items: center; text-transform: capitalize; cursor: pointer; }
 .night-overlay { position: absolute; inset: 0; z-index: 1; pointer-events: none;
   transition: background 1.2s linear; }
+.legend { position: absolute; left: 10px; top: 92px; z-index: 2; max-width: 190px;
+  background: rgba(20,20,26,0.72); border-radius: 12px; color: #eee;
+  backdrop-filter: blur(6px); overflow: hidden; }
+.legend-toggle { width: 100%; text-align: left; padding: 8px 12px; border: none;
+  cursor: pointer; background: transparent; color: #eee; font: 700 12px system-ui; }
+.legend-body { padding: 0 12px 10px; display: flex; flex-direction: column; gap: 9px; }
+.legend-section { display: flex; flex-direction: column; gap: 3px; }
+.legend-title { font: 700 10px system-ui; letter-spacing: 0.05em;
+  text-transform: uppercase; opacity: 0.6; }
+.legend-row { display: flex; align-items: center; gap: 7px; font: 600 12px system-ui; }
+.legend-swatch { width: 12px; height: 12px; border-radius: 3px; flex: none;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.18); }
+.legend-count { opacity: 0.55; }

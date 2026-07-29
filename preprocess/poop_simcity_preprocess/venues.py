@@ -36,6 +36,17 @@ def venue_index_map(venues: pd.DataFrame) -> dict:
 
 
 def venue_arrays(venues: pd.DataFrame) -> dict:
+    # Validate that all venue_type values are known before mapping.
+    # .map() silently produces NaN for unknown values, which then silently
+    # cast to 0 (Apartment) when converted to uint8, causing data corruption.
+    allowed = set(VENUE_TYPE_TO_ID.keys())
+    unknown = sorted(set(venues["venue_type"].unique()) - allowed)
+    if unknown:
+        raise ValueError(
+            f"venues['venue_type'] contains unmapped values {unknown}; "
+            f"known values are {sorted(allowed)}"
+        )
+
     return {
         "venues_id.i32": venues["venue_id"].to_numpy(dtype=np.int32),
         "venues_lon.f32": venues["longitude"].to_numpy(dtype=np.float32),

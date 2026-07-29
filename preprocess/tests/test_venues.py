@@ -51,3 +51,20 @@ def test_venue_arrays_have_the_expected_dtypes_and_order(tmp_path):
     assert a["venues_type.u8"].tolist() == [0, 3]        # Apartment=0, Pub=3
     assert a["venues_lon.f32"].dtype == np.float32
     np.testing.assert_allclose(a["venues_lat.f32"], [32.8, 32.7], rtol=1e-6)
+
+
+def test_venue_arrays_raises_on_unmapped_venue_type():
+    """venue_arrays must reject unmapped venue types to prevent silent data corruption.
+
+    .map() + .to_numpy(dtype=uint8) silently converts NaN -> 0 (Apartment), masking
+    the error if an unknown venue_type is encountered.
+    """
+    venues = pd.DataFrame({
+        "venue_id": [1, 2, 3],
+        "venue_type": ["Apartment", "UnknownType", "Pub"],
+        "latitude": [32.8, 32.9, 32.7],
+        "longitude": [-117.2, -117.3, -117.1],
+    })
+    with np.testing.assert_raises(ValueError) as cm:
+        venue_arrays(venues)
+    assert "UnknownType" in str(cm.exception)

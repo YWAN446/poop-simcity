@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pytest
 
 from poop_simcity_preprocess.poop_stream import (
     build_poop_stream, dequantize, quantize,
@@ -77,3 +78,46 @@ def test_downsampling_is_deterministic(tmp_path):
     second = build_poop_stream(str(tmp_path), SDC_10K, WINDOW, BBOX, 0.25)
     np.testing.assert_array_equal(first["poops_lon.u16"], second["poops_lon.u16"])
     assert len(first["poops_tick.u16"]) == 5
+
+
+def test_zero_keep_fraction_drops_every_clean_event_but_not_infected(tmp_path):
+    rows = [_row(a, "2024-01-01 00:00:00", 0.0) for a in range(10)]
+    rows += [_row(a, "2024-01-01 00:05:00", 2.0) for a in range(10)]
+    _write_poops(tmp_path, rows)
+    a = build_poop_stream(str(tmp_path), SDC_10K, WINDOW, BBOX, clean_keep_fraction=0.0)
+    pathogen = a["poops_pathogen.f32"]
+    assert (pathogen > 0).sum() == 10          # every infected event survives
+    assert (pathogen == 0).sum() == 0          # every clean event is dropped
+
+
+def test_negative_keep_fraction_raises(tmp_path):
+    _write_poops(tmp_path, [_row(0, "2024-01-01 00:00:00", 0.0)])
+    with pytest.raises(ValueError):
+        build_poop_stream(str(tmp_path), SDC_10K, WINDOW, BBOX, clean_keep_fraction=-0.5)
+
+
+def test_sort_permutes_lon_lat_and_pathogen_together_with_tick(tmp_path):
+    # Insertion order deliberately does not match tick order, and every event
+    # carries a distinguishable coordinate and pathogen value. If the final
+    # sort applied its permutation to the tick array but left one of the
+    # other three arrays unpermuted (or permuted with a different order),
+    # this test would catch it by finding a tick paired with the wrong
+    # lon/lat/pathogen.
+    rows = [
+        (10, "2024-01-01 03:00:00", 33.9, -116.2, "Apartment", 7.0, "Infectious", None),
+        (11, "2024-01-01 00:00:00", 32.1, -117.8, "Apartment", 1.0, "Infectious", None),
+        (12, "2024-01-01 01:30:00", 33.0, -117.0, "Apartment", 4.0, "Infectious", None),
+    ]
+    _write_poops(tmp_path, rows)
+    a = build_poop_stream(str(tmp_path), SDC_10K, WINDOW, BBOX, clean_keep_fraction=1.0)
+
+    assert a["poops_tick.u16"].tolist() == [0, 18, 36]
+
+    tol = (BBOX[2] - BBOX[0]) / 65535
+    lon = dequantize(a["poops_lon.u16"], BBOX[0], BBOX[2])
+    lat = dequantize(a["poops_lat.u16"], BBOX[1], BBOX[3])
+    pathogen = a["poops_pathogen.f32"]
+
+    np.testing.assert_allclose(lon, [-117.8, -117.0, -116.2], atol=tol)
+    np.testing.assert_allclose(lat, [32.1, 33.0, 33.9], atol=tol)
+    np.testing.assert_allclose(pathogen, [1.0, 4.0, 7.0], atol=1e-5)

@@ -43,13 +43,27 @@ def iter_poop_batches(dataset_dir, profile, window, columns, batch_size=2_000_00
 def build_poop_stream(dataset_dir, profile, window, bbox,
                       clean_keep_fraction=0.3, batch_size=2_000_000):
     min_lon, min_lat, max_lon, max_lat = bbox
-    keep_mod = 0 if clean_keep_fraction >= 1.0 else max(1, round(1.0 / clean_keep_fraction))
+    if clean_keep_fraction < 0:
+        raise ValueError(
+            f"clean_keep_fraction must be >= 0, got {clean_keep_fraction}"
+        )
+    if clean_keep_fraction >= 1.0:
+        keep_mod = 0        # sentinel: keep every event, skip thinning
+    elif clean_keep_fraction == 0:
+        keep_mod = None     # sentinel: drop every clean event
+    else:
+        keep_mod = max(1, round(1.0 / clean_keep_fraction))
     blocks = []
 
     columns = ["agent_id", "time", "latitude", "longitude", "pathogen_level"]
     for df in iter_poop_batches(dataset_dir, profile, window, columns, batch_size):
         infected = df["pathogen_level"].to_numpy() > 0
-        if keep_mod:
+        if keep_mod is None:
+            keep = infected
+            df = df[keep]
+            if df.empty:
+                continue
+        elif keep_mod:
             keep = infected | ((df["agent_id"].to_numpy() % keep_mod) == 0)
             df = df[keep]
             if df.empty:

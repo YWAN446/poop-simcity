@@ -3360,11 +3360,14 @@ describe("useBundleV2", () => {
   it("ignores a resolution that lands after unmount", async () => {
     let resolve!: (v: unknown) => void;
     loadBundleV2.mockReturnValue(new Promise((r) => { resolve = r; }));
-    const { unmount } = renderHook(() => useBundleV2("/data/x"));
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { result, unmount } = renderHook(() => useBundleV2("/data/x"));
     unmount();
     resolve({ manifest: {} });
-    // No "update on unmounted component" warning and no throw.
-    await Promise.resolve();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(result.current.status).toBe("loading");   // never advanced post-unmount
+    expect(errors).not.toHaveBeenCalled();           // no setState-after-unmount warning
+    errors.mockRestore();
   });
 });
 ```

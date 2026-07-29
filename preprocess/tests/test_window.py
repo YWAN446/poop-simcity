@@ -50,3 +50,15 @@ def test_to_u16_raises_on_overflow_naming_the_field():
 def test_to_u16_raises_on_negative():
     with pytest.raises(ValueError, match="dwell"):
         to_u16(np.array([-1, 5]), "dwell")
+
+
+def test_to_u16_raises_on_float_negative_naming_the_field():
+    # Float with small negative (e.g., -0.5) should not be silently truncated to 0
+    with pytest.raises(ValueError, match="tick"):
+        to_u16(np.array([-0.5, 100.2]), "tick")
+
+
+def test_to_u16_raises_on_nan_naming_the_field():
+    # NaN-containing array should raise with field name, not bare int-conversion error
+    with pytest.raises(ValueError, match="venue"):
+        to_u16(np.array([1.0, np.nan, 100.0]), "venue")

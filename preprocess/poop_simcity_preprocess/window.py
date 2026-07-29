@@ -45,9 +45,17 @@ def mask_in_window(times, window: Window) -> np.ndarray:
 def to_u16(arr: np.ndarray, label: str) -> np.ndarray:
     arr = np.asarray(arr)
     if arr.size:
-        hi = int(arr.max())
-        lo = int(arr.min())
-        if hi > U16_MAX or lo < 0:
+        # Check for NaN values (only possible in float arrays)
+        if np.issubdtype(arr.dtype, np.floating):
+            if np.any(np.isnan(arr)):
+                raise ValueError(
+                    f"{label} contains NaN; cannot encode as uint16"
+                )
+        # Check bounds on the raw array (before int-casting) to catch float edge cases
+        # like -0.5 which would truncate to 0 and silently bypass the check
+        if np.any(arr < 0) or np.any(arr > U16_MAX):
+            lo = np.min(arr)
+            hi = np.max(arr)
             raise ValueError(
                 f"{label} out of uint16 range: min={lo} max={hi} "
                 f"(limit {U16_MAX}); narrow the playback window"

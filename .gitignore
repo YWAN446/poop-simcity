@@ -1,5 +1,6 @@
 # Raw simulation data (large parquet / 736MB CSV) — provided, not versioned here
 /dataset_00/
+/dataset_sdc-10k/
 
 # Source preprint and scratch extraction
 *.pdf

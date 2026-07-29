@@ -147,7 +147,7 @@ per-record loop. Ticks are indices from `windowStart`, `tick = (time − windowS
   "outbreakWindow": { "startTick": 0, "endTick": 61343 },
   "venueTypes": ["Apartment", "Workplace", "Restaurant", "Pub"],
   "coverage": {
-    "exposureShareInWindow": 0.993,
+    "transmissionsInWindow": 5452,
     "recoveryTimeResolution": "daily",
     "cleanPoopKeepFraction": 0.3
   },
@@ -171,7 +171,9 @@ this run yields. `outbreakWindow` spans the whole window here, since prevalence 
 from tick 0 through Jul 31, so the app opens at the start rather than seeking into the run.
 
 `coverage` exists so the UI can state honestly what was trimmed and where precision is
-limited, rather than implying full-year, full-precision data.
+limited, rather than implying full-year, full-precision data. `transmissionsInWindow` counts
+transmissions the build actually saw; the 99.3% figure quoted in this document comes from a
+full-year audit, which a windowed build cannot recompute for itself.
 
 ### Venues — `venues_lon.f32`, `venues_lat.f32`, `venues_type.u8`
 

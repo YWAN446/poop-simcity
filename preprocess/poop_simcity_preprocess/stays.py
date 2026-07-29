@@ -9,6 +9,7 @@ affordable; a per-agent Python list of 8.7M tuples would not be.
 import os
 
 import numpy as np
+import pandas as pd
 import pyarrow.parquet as pq
 
 from .window import mask_in_window, ticks_of, to_u16
@@ -40,8 +41,27 @@ def build_stays(dataset_dir, profile, window, venue_index, batch_size=2_000_000)
                 f"{sorted(unknown)[:5]}"
             )
 
+        # Parse the checkout column once (errors="coerce" turns both a missing
+        # value and an unparseable string into NaT) and reuse the parsed
+        # series below, instead of re-parsing the raw string column again.
+        checkout = pd.to_datetime(df[profile.checkout_col], errors="coerce")
+        missing = checkout.isna()
+        if missing.any():
+            raise ValueError(
+                f"check-in has a missing/unparseable {profile.checkout_col!r}; "
+                f"sample agent_id(s): {df.loc[missing, 'agent_id'].head(5).tolist()}"
+            )
+
+        reversed_order = checkout < df["time"]
+        if reversed_order.any():
+            raise ValueError(
+                f"{profile.checkout_col!r} precedes its own check-in time; "
+                f"sample agent_id(s): "
+                f"{df.loc[reversed_order, 'agent_id'].head(5).tolist()}"
+            )
+
         tick = ticks_of(df["time"], window)
-        checkout_tick = ticks_of(df[profile.checkout_col], window)
+        checkout_tick = ticks_of(checkout, window)
         dwell = np.clip(checkout_tick - tick, 1, None)
         dwell = np.minimum(dwell, last_tick - tick + 1)
         venue = df["venue_id"].map(venue_index).to_numpy(dtype="int64")

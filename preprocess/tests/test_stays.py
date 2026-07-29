@@ -92,3 +92,20 @@ def test_missing_checkout_column_raises(tmp_path):
     ])
     with pytest.raises(ValueError, match="check-out"):
         build_stays(str(tmp_path), DATASET_00, WINDOW, {5: 0})
+
+
+def test_null_or_empty_checkout_time_raises(tmp_path):
+    _write_checkin(tmp_path, [
+        (0, "2024-01-01 00:00:00", None, 5, "Apartment", 32.7, -117.1),
+        (1, "2024-01-01 00:00:00", "", 5, "Apartment", 32.7, -117.1),
+    ])
+    with pytest.raises(ValueError, match="CheckoutTime"):
+        build_stays(str(tmp_path), SDC_10K, WINDOW, {5: 0})
+
+
+def test_checkout_before_checkin_raises(tmp_path):
+    _write_checkin(tmp_path, [
+        (0, "2024-01-01 00:10:00", "2024-01-01 00:05:00", 5, "Apartment", 32.7, -117.1),
+    ])
+    with pytest.raises(ValueError, match="precedes"):
+        build_stays(str(tmp_path), SDC_10K, WINDOW, {5: 0})

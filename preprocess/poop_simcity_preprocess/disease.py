@@ -42,7 +42,7 @@ def build_pathogen_samples(disease_df, start_time, cadence_sec=86400):
     return result
 
 
-def build_transmissions(disease_df, start_time):
+def build_transmissions(disease_df, start_time, source_col="source_agent_id"):
     """Return [[tick, source_agent_id, target_agent_id], ...].
 
     One per agent that entered Exposed with a known source; tick comes from the
@@ -50,7 +50,7 @@ def build_transmissions(disease_df, start_time):
     """
     df = disease_df[
         (disease_df["disease_status"] == "Exposed")
-        & (disease_df["source_agent_id"] != -1)
+        & (disease_df[source_col] != -1)
     ].copy()
     if df.empty:
         return []
@@ -59,15 +59,15 @@ def build_transmissions(disease_df, start_time):
     df = df.sort_values("tick", kind="stable")
     return [
         [int(t), int(src), int(aid)]
-        for t, src, aid in zip(df["tick"], df["source_agent_id"], df["agent_id"])
+        for t, src, aid in zip(df["tick"], df[source_col], df["agent_id"])
     ]
 
 
-def build_disease(disease_df, start_time):
+def build_disease(disease_df, start_time, source_col="source_agent_id"):
     """Assemble the full disease.json structure."""
     transitions = build_transitions(disease_df, start_time)
     samples = build_pathogen_samples(disease_df, start_time)
-    transmissions = build_transmissions(disease_df, start_time)
+    transmissions = build_transmissions(disease_df, start_time, source_col)
     agents = [
         {
             "agentId": aid,

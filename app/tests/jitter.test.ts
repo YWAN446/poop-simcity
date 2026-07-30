@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { JITTER_RADIUS_M, jitterDegrees } from "../src/sim/jitter";
+import { JITTER_RADIUS_M, jitterDegrees, jitterInto } from "../src/sim/jitter";
 
 const M_PER_DEG_LAT = 111_320;
 
@@ -33,5 +33,14 @@ describe("jitterDegrees", () => {
     const [equatorLon] = jitterDegrees(7, 0);
     const [highLon] = jitterDegrees(7, 60);
     expect(Math.abs(highLon)).toBeGreaterThan(Math.abs(equatorLon));
+  });
+
+  it("jitterInto writes the same values that jitterDegrees returns", () => {
+    for (const [agentId, lat] of [[42, 32.7], [1, 32.7], [7, 0], [7, 60], [999, -12.3]] as const) {
+      const expected = jitterDegrees(agentId, lat);
+      const out: [number, number] = [0, 0];
+      jitterInto(agentId, lat, out);
+      expect(out).toEqual(expected);
+    }
   });
 });

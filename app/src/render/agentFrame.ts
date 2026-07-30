@@ -1,15 +1,18 @@
 import { Presence, resolvePose, type AgentPose } from "../sim/dwell";
-import { jitterDegrees } from "../sim/jitter";
+import { jitterInto } from "../sim/jitter";
 import { stateAtTick } from "../sim/diseaseState";
 import type { BundleV2 } from "../types2";
 
 /**
  * Per-frame agent state in reusable typed arrays.
  *
- * The v1 path allocated an object per agent and sorted the array every frame. At
- * 10,000 agents and 60 fps that is 600k allocations per second; here nothing is
- * allocated after setup and draw order comes from four fixed buckets rather than a
- * comparison sort.
+ * `createAgentFrame` allocates the frame's typed arrays once, sized to the agent and
+ * venue counts. `updateAgentFrame` reuses them on every call: per-agent scratch
+ * (`pose`, `jitterScratch`) and the empty-transitions sentinel (`NO_TRANSITIONS`) are
+ * module-level and reused across agents and frames, so the per-frame path is
+ * allocation-free. Draw order comes from four fixed buckets rather than a comparison
+ * sort. The v1 path allocated an object per agent and sorted the array every frame —
+ * at 10,000 agents and 60 fps that is 600k+ allocations per second.
  *
  * Arrays are indexed by *slot* — the agent's position in `bundle.agentIds` — not by
  * agent id.
@@ -39,6 +42,10 @@ export function createAgentFrame(bundle: BundleV2): AgentFrame {
 }
 
 const pose: AgentPose = { lon: 0, lat: 0, presence: Presence.Absent, venue: -1 };
+const jitterScratch: [number, number] = [0, 0];
+// Shared sentinel for agents with no transition record (never exposed in this
+// window) — frozen so a future `stateAtTick` change can't mutate shared state.
+const NO_TRANSITIONS = Object.freeze([]) as unknown as [number, number][];
 const buckets: number[][] = [[], [], [], []];
 
 export function updateAgentFrame(
@@ -66,14 +73,14 @@ export function updateAgentFrame(
     let lat = pose.lat;
     if (presence === Presence.Dwelling) {
       frame.occupancy[pose.venue]++;
-      const [dLon, dLat] = jitterDegrees(agentId, lat);
-      lon += dLon;
-      lat += dLat;
+      jitterInto(agentId, lat, jitterScratch);
+      lon += jitterScratch[0];
+      lat += jitterScratch[1];
     }
     frame.positions[slot * 2] = lon;
     frame.positions[slot * 2 + 1] = lat;
 
-    const code = stateAtTick(transitionsByAgent.get(agentId) ?? [], tick);
+    const code = stateAtTick(transitionsByAgent.get(agentId) ?? NO_TRANSITIONS, tick);
     frame.codes[slot] = code;
     buckets[code].push(slot);
   }

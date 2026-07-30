@@ -21,8 +21,13 @@ function hash(n: number): number {
   return x >>> 0;
 }
 
-/** [dLon, dLat] in degrees, uniformly distributed on a JITTER_RADIUS_M disc. */
-export function jitterDegrees(agentId: number, lat: number): [number, number] {
+/**
+ * Writes [dLon, dLat] in degrees into `out`, uniformly distributed on a
+ * JITTER_RADIUS_M disc. Shared by `jitterDegrees`; call this form directly in
+ * per-frame hot paths (with a reused scratch tuple) to avoid allocating a fresh
+ * tuple per agent per frame.
+ */
+export function jitterInto(agentId: number, lat: number, out: [number, number]): void {
   const h = hash(agentId);
   const angle = ((h & 0xffff) / 0x10000) * Math.PI * 2;
   // sqrt keeps the distribution uniform by area instead of bunching at the centre.
@@ -30,5 +35,13 @@ export function jitterDegrees(agentId: number, lat: number): [number, number] {
   const north = radius * Math.sin(angle);
   const east = radius * Math.cos(angle);
   const cosLat = Math.max(Math.cos((lat * Math.PI) / 180), 1e-6);
-  return [east / (M_PER_DEG_LAT * cosLat), north / M_PER_DEG_LAT];
+  out[0] = east / (M_PER_DEG_LAT * cosLat);
+  out[1] = north / M_PER_DEG_LAT;
+}
+
+/** [dLon, dLat] in degrees, uniformly distributed on a JITTER_RADIUS_M disc. */
+export function jitterDegrees(agentId: number, lat: number): [number, number] {
+  const out: [number, number] = [0, 0];
+  jitterInto(agentId, lat, out);
+  return out;
 }

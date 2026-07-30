@@ -5,7 +5,11 @@ export default defineConfig({
     environment: "node",
     // Only the React hook test needs DOM globals; keep the rest of the suite on
     // the cheaper node environment.
-    environmentMatchGlobs: [["tests/useBundleV2.test.ts", "jsdom"]],
+    environmentMatchGlobs: [
+      ["tests/useBundleV2.test.ts", "jsdom"],
+      ["tests/datasetErrorScreen.test.ts", "jsdom"],
+    ],
+    setupFiles: ["./tests/setupDom.ts"],
     include: ["tests/**/*.test.ts"],
   },
 });

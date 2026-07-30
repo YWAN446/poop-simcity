@@ -19,7 +19,7 @@ import { usePulse } from "../hooks/usePulse";
 import { tickToDate } from "../sim/timeMapping";
 import { dayNightTint } from "../render/theme";
 
-export function MapView({
+export function MapViewV2({
   bundle, frame, tick, flags,
 }: { bundle: BundleV2; frame: AgentFrame; tick: number; flags: LayerFlags }) {
   const [minLon, minLat, maxLon, maxLat] = bundle.manifest.bbox;

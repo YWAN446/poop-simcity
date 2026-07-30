@@ -1,8 +1,12 @@
-import type { ManifestV2 } from "../types2";
+/** Structural minimum both v1 `Manifest` and v2 `ManifestV2` satisfy. */
+export interface TimelineManifest {
+  numTicks: number;
+  outbreakWindow: { startTick: number; endTick: number };
+}
 
 export function Timeline({
   manifest, tick, onSeek,
-}: { manifest: ManifestV2; tick: number; onSeek: (t: number) => void }) {
+}: { manifest: TimelineManifest; tick: number; onSeek: (t: number) => void }) {
   const max = manifest.numTicks - 1;
   const ow = manifest.outbreakWindow;
   const pct = (t: number) => `${(t / max) * 100}%`;

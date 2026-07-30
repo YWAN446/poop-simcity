@@ -1,15 +1,21 @@
 import type { Aggregates } from "../types";
-import type { ManifestV2 } from "../types2";
 import { hourBinIndex } from "../sim/timeMapping";
-import { coverageLabel } from "./coverageLabel";
 import { SeirChart } from "./SeirChart";
 import { WastewaterChart } from "./WastewaterChart";
 
+/** Structural minimum both v1 `Manifest` and v2 `ManifestV2` satisfy. */
+export interface HudManifest {
+  tickIntervalSec: number;
+}
+
 export function Hud({
-  manifest, agg, tick, ticksPerSecond, onSpeed,
+  manifest, agg, tick, ticksPerSecond, onSpeed, coverageLine,
 }: {
-  manifest: ManifestV2; agg: Aggregates; tick: number;
+  manifest: HudManifest; agg: Aggregates; tick: number;
   ticksPerSecond: number; onSpeed: (v: number) => void;
+  /** Honest coverage caveat (v2 only — see `coverageLabel`); omitted for v1,
+   * whose manifest has no `coverage` field to describe. */
+  coverageLine?: string;
 }) {
   // Clamp the hourly bin; each chart shows its own date + values readout below it.
   const bin = Math.min(
@@ -18,7 +24,7 @@ export function Hud({
   );
   return (
     <div className="hud">
-      <div className="hud-coverage">{coverageLabel(manifest)}</div>
+      {coverageLine != null && <div className="hud-coverage">{coverageLine}</div>}
       <SeirChart agg={agg} hourBin={bin} />
       <WastewaterChart agg={agg} hourBin={bin} />
       <label className="hud-speed">

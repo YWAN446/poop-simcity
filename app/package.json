@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:sdc-10k": "tsc && vite build --mode sdc-10k",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "deploy": "npm run build && npx --yes wrangler pages deploy dist --project-name poop-simcity-sdc-10k --branch main --commit-dirty=true"
+    "deploy": "npm run build:sdc-10k && npx --yes wrangler pages deploy dist --project-name poop-simcity-sdc-10k --branch main --commit-dirty=true"
   },
   "dependencies": {
     "deck.gl": "^9.0.33",

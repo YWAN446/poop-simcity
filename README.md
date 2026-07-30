@@ -141,10 +141,23 @@ The live demo is hosted free on **Cloudflare Pages** (static files only — no
 backend). To publish an update, from `app/`:
 
 ```bash
-npm run deploy   # builds, then uploads dist/ to the poop-simcity Pages project
+npm run deploy   # builds, then uploads dist/ to the poop-simcity-sdc-10k Pages project
 ```
 
-(First time on a new machine: `npx wrangler login` once to authorize Cloudflare.)
+(First time on a new machine, or after the token expires: `npx wrangler login` once
+to authorize Cloudflare.)
+
+### The two demos are separate Pages projects
+
+This checkout's app serves **`dataset_sdc-10k`** (San Diego, dwell-time movement) and
+nothing else — there is no runtime dataset switcher. So `npm run deploy` publishes to
+its own project, **`poop-simcity-sdc-10k`**, and leaves the original alone.
+
+The **Atlanta demo at https://poop-simcity.pages.dev is a frozen v1 deployment.** It
+keeps serving the last build made from a v1 checkout. Do not point this checkout's
+build at that project: it would replace Atlanta with San Diego, since `dist/` here
+only ever contains the `dataset_sdc-10k` app. To redeploy Atlanta, check out a
+revision from before the sdc-10k port and deploy from there.
 
 ---
 

@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "deploy": "npm run build && npx --yes wrangler pages deploy dist --project-name poop-simcity --branch main --commit-dirty=true"
+    "deploy": "npm run build && npx --yes wrangler pages deploy dist --project-name poop-simcity-sdc-10k --branch main --commit-dirty=true"
   },
   "dependencies": {
     "deck.gl": "^9.0.33",

@@ -106,8 +106,8 @@ the paper's project: <https://github.com/onspatial/wastewater-based-epidemiology
 
 A second, larger simulation run — 10,000 agents, 12,134 venues, San Diego County —
 is supported via `schemaVersion 2` of the bundle format. Unlike `dataset_00`, this
-bundle is **not committed** to the repo (it's ~98 MB; see `.gitignore`), so it must
-be generated locally. With the raw `dataset_sdc-10k/` parquet folder
+bundle is **not committed** to the repo (it's 101.7 MB across 20 files; see
+`.gitignore`), so it must be generated locally. With the raw `dataset_sdc-10k/` parquet folder
 (`Checkin.parquet`, `DiseasesStatus.parquet`, `Poopin.parquet`) present at the repo
 root, from `preprocess/`:
 

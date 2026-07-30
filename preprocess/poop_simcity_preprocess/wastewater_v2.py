@@ -8,7 +8,7 @@ JSON object of 633 x 5,112 numbers would be ~28 MB of text.
 import numpy as np
 import pandas as pd
 
-from .constants import TICK_INTERVAL_SEC
+from .aggregates_v2 import hourly_bin_grid
 from .poop_stream import iter_poop_batches
 from .window import ticks_of
 
@@ -26,8 +26,8 @@ def build_wastewater_v2(dataset_dir, profile, window, bbox, cell_size_deg=0.02,
     then folded into the running per-cell accumulator.
     """
     min_lon, min_lat, max_lon, max_lat = bbox
-    bin_ticks = cadence_sec // TICK_INTERVAL_SEC
-    num_bins = (window.num_ticks + bin_ticks - 1) // bin_ticks
+    grid_ticks, bin_ticks = hourly_bin_grid(window, cadence_sec)
+    num_bins = len(grid_ticks)
 
     cells = {}   # (ix, iy) -> float64 accumulator array of length num_bins
     columns = ["time", "latitude", "longitude", "pathogen_level"]

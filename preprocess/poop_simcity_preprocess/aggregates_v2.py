@@ -13,7 +13,14 @@ from .window import ticks_of
 STATE_NAMES = ["S", "E", "I", "R"]
 
 
-def _grid(window, cadence_sec):
+def hourly_bin_grid(window, cadence_sec):
+    """Tick index of each aggregation bin's opening edge, plus the bin width in ticks.
+
+    Public (not `_grid`) because `wastewater_v2.build_wastewater_v2` shares it: both
+    `aggregates.json`'s `gridTicks` and `wastewater_regions.json`'s `numBins` must
+    describe the same bin grid, or the two artifacts can silently disagree about what
+    bin index N means even though each validates against its own sidecar.
+    """
     bin_ticks = cadence_sec // TICK_INTERVAL_SEC
     num_bins = (window.num_ticks + bin_ticks - 1) // bin_ticks
     return [i * bin_ticks for i in range(num_bins)], bin_ticks
@@ -54,7 +61,7 @@ def seir_hourly(transitions, num_agents, window, cadence_sec=3600):
             f"is a subset of the population counted by `num_agents`."
         )
 
-    grid_ticks, bin_ticks = _grid(window, cadence_sec)
+    grid_ticks, bin_ticks = hourly_bin_grid(window, cadence_sec)
     num_bins = len(grid_ticks)
     # Last valid tick index covered by each bin, capped at the window's last
     # valid tick (num_ticks - 1) so a short final bin doesn't claim ticks
@@ -89,7 +96,7 @@ def seir_hourly(transitions, num_agents, window, cadence_sec=3600):
 
 def pathogen_inflow_hourly(dataset_dir, profile, window, cadence_sec=3600,
                            batch_size=2_000_000):
-    grid_ticks, bin_ticks = _grid(window, cadence_sec)
+    grid_ticks, bin_ticks = hourly_bin_grid(window, cadence_sec)
     totals = np.zeros(len(grid_ticks), dtype="float64")
     for df in iter_poop_batches(dataset_dir, profile, window,
                                 ["time", "pathogen_level"], batch_size):
@@ -110,7 +117,7 @@ def build_aggregates_v2(dataset_dir, profile, window, transitions, num_agents,
     doesn't get confused with v1's `aggregates.py`, which samples SEIR at
     bin open).
     """
-    grid_ticks, _ = _grid(window, cadence_sec)
+    grid_ticks, _ = hourly_bin_grid(window, cadence_sec)
     return {
         "cadenceSec": cadence_sec,
         "seirSampledAt": "binEnd",

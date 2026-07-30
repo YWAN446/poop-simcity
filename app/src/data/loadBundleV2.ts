@@ -7,6 +7,22 @@ import type {
 const U16_MAX = 65535;
 const TRANSITION_BYTES = 3;
 
+/**
+ * Cross-artifact consistency guard. A partial or mismatched bundle regeneration (e.g. one
+ * artifact regenerated against a different run than its siblings) fails silently downstream:
+ * out-of-range typed-array writes are no-ops and reads past the end yield `undefined`,
+ * producing a `NaN` render radius rather than an error. The producer side (the Python
+ * preprocessor) already fails loudly on internal inconsistency; this makes the consumer do
+ * the same, at load time, before any frame is drawn.
+ */
+function assertEqual(check: string, values: Record<string, number>): void {
+  const entries = Object.entries(values);
+  const [, first] = entries[0];
+  if (entries.every(([, v]) => v === first)) return;
+  const detail = entries.map(([k, v]) => `${k}=${v}`).join(", ");
+  throw new Error(`Bundle inconsistency (${check}): ${detail}`);
+}
+
 interface DiseaseIndexEntry {
   agentId: number;
   transOffset: number;
@@ -51,6 +67,14 @@ export async function loadBundleV2(
     id: new Int32Array(venuesId),
     count: venuesType.byteLength,
   };
+  assertEqual(
+    "venue array lengths",
+    { lon: venues.lon.length, lat: venues.lat.length, type: venues.type.length, id: venues.id.length },
+  );
+  assertEqual(
+    "venue count vs manifest.numVenues",
+    { venues: venues.count, "manifest.numVenues": manifest.numVenues },
+  );
 
   const stays: Stays = {
     tick: new Uint16Array(staysTick),
@@ -58,6 +82,10 @@ export async function loadBundleV2(
     venue: new Uint16Array(staysVenue),
     count: staysTick.byteLength / 2,
   };
+  assertEqual(
+    "stays array lengths",
+    { tick: stays.tick.length, dwell: stays.dwell.length, venue: stays.venue.length },
+  );
 
   const indexEntries = staysIndex as StayIndexEntry[];
   const stayIndex = new Map<number, StaySlice>();
@@ -66,6 +94,11 @@ export async function loadBundleV2(
     agentIds[i] = e.agentId;
     stayIndex.set(e.agentId, { offset: e.offset, count: e.count });
   });
+  const stayIndexTotal = indexEntries.reduce((sum, e) => sum + e.count, 0);
+  assertEqual(
+    "stays_index.json counts vs stays array length",
+    { "sum(stays_index.count)": stayIndexTotal, "stays.count": stays.count },
+  );
 
   const poops: PoopsV2 = {
     tick: new Uint16Array(poopsTick),
@@ -75,6 +108,13 @@ export async function loadBundleV2(
     infected: new Uint8Array(poopsInfected),
     count: poopsTick.byteLength / 2,
   };
+  assertEqual(
+    "poop array lengths",
+    {
+      tick: poops.tick.length, lonQ: poops.lonQ.length, latQ: poops.latQ.length,
+      pathogen: poops.pathogen.length, infected: poops.infected.length,
+    },
+  );
 
   const transmissionsRaw = new Uint16Array(transmissionsBuf);
   const txCount = transmissionsRaw.length / 3;
@@ -99,6 +139,13 @@ export async function loadBundleV2(
     ...regionsMeta,
     values: new Float32Array(wastewaterBuf),
   };
+  assertEqual(
+    "wastewater.values length vs regions.length * numBins",
+    {
+      "wastewater.values.length": wastewater.values.length,
+      "regions.length * numBins": wastewater.regions.length * wastewater.numBins,
+    },
+  );
 
   const [minLon, minLat, maxLon, maxLat] = manifest.bbox;
   return {

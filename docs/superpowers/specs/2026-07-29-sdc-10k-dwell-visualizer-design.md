@@ -29,7 +29,7 @@ v1 design's future-work list). No UI dataset switcher — this build targets
   all exposures plus the complete take-off, peak and decline. Keeps every tick index below
   65,536 so tick fields fit `uint16`.
 - **All 10,000 agents** on the map. No population subsampling.
-- **Single bundle, no lazy loading.** ~98 MB raw, roughly half that compressed.
+- **Single bundle, no lazy loading.** 101.7 MB raw (20 files), roughly half that compressed.
 - **Struct-of-arrays binary**, so every field decodes as a zero-copy typed array.
 - **Agent stays reference venues by index**; poop events carry quantized coordinates.
 - Clean-poop keep fraction and window bounds are CLI flags, not constants.
@@ -91,7 +91,7 @@ Nothing required by the app is absent. For the record:
 | `social_links.parquet` | Only the post-v1 social-network layer. Infection arcs are unaffected and in fact more accurate, since `SourceAgentId` plus exact `exposed_started_time` replaces snapshot-dated inference. |
 | `FriendFamilyGraph.dgs`, `WorkGraph.dgs` | Unused in v1 and in this design. |
 | `output_matrix.csv` | Was optional wastewater cross-validation only. The derived signal cannot be cross-checked against the model's own aggregation for this run. |
-| Sewer-network / sewershed geometry | Same gap as `dataset_00`. The 0.02° grid proxy stands; 633 grid cells are populated by pathogen-bearing events. |
+| Sewer-network / sewershed geometry | Same gap as `dataset_00`. The 0.02° grid proxy stands; 632 grid cells are populated by pathogen-bearing events. |
 | Run parameters (`modified.properties`, `run.log`) | Provenance only; not consumed by the pipeline. |
 
 One inherited limitation: **recovery has no explicit timestamp.** `exposed_started_time` and
@@ -144,10 +144,10 @@ per-record loop. Ticks are indices from `windowStart`, `tick = (time − windowS
   "numAgents": 10000,
   "numVenues": 12134,
   "bbox": [-117.594923, 32.535643, -116.119757, 33.479878],
-  "outbreakWindow": { "startTick": 0, "endTick": 61343 },
+  "outbreakWindow": { "startTick": 0, "endTick": 61332 },
   "venueTypes": ["Apartment", "Workplace", "Restaurant", "Pub"],
   "coverage": {
-    "transmissionsInWindow": 5452,
+    "transmissionsInWindow": 5444,
     "recoveryTimeResolution": "daily",
     "cleanPoopKeepFraction": 0.3
   },
@@ -158,6 +158,7 @@ per-record loop. Ticks are indices from `windowStart`, `tick = (time − windowS
     "staysVenue": "stays_venue.u16", "staysIndex": "stays_index.json",
     "poopsTick": "poops_tick.u16",   "poopsLon": "poops_lon.u16",
     "poopsLat": "poops_lat.u16",     "poopsPathogen": "poops_pathogen.f32",
+    "poopsInfected": "poops_infected.u8",
     "disease": "disease.bin",        "diseaseIndex": "disease_index.json",
     "transmissions": "transmissions.bin",
     "aggregates": "aggregates.json",
@@ -196,7 +197,7 @@ Boundary rules: stays beginning at or after `windowEnd` are dropped; a stay whos
 falls past `windowEnd` is clipped; an agent's final in-window stay has no travel successor
 and simply holds.
 
-### Poop events — `poops_tick.u16`, `poops_lon.u16`, `poops_lat.u16`, `poops_pathogen.f32`
+### Poop events — `poops_tick.u16`, `poops_lon.u16`, `poops_lat.u16`, `poops_pathogen.f32`, `poops_infected.u8`
 
 Sorted by tick, so the app keeps its forward-advancing stream pointer. Coordinates are
 quantized to `uint16` across the bbox, which gives ~2.3 m longitude and ~1.6 m latitude
@@ -206,8 +207,18 @@ ambiguous: `(lat, lon, venue_type)` yields only 11,954 distinct keys for 12,134 
 up to 3 venues sharing a key.
 
 Every pathogen-bearing event is kept; clean events are deterministically downsampled to
-`cleanPoopKeepFraction` (default 0.3) by `agent_id` modulo. About 3.0M records × 10 bytes
-≈ 30 MB.
+`cleanPoopKeepFraction` (default 0.3) by `agent_id` modulo. Each record is
+`tick u16 + lonQ u16 + latQ u16 + pathogen f32 + infected u8` — about 3.0M records × 11 bytes
+≈ 33 MB.
+
+`poops_infected.u8` exists because `poops_pathogen.f32 > 0` is not a safe test for
+infected-vs-clean: the simulation's pathogen decay model produces values as small as
+`4.89e-161`, far below float32's smallest positive subnormal (~1.4e-45), so
+**322,424 of 1,619,274 pathogen-bearing events in the window (19.9%) underflow to `0.0`**
+once `pathogen_level` is narrowed to `poops_pathogen.f32`. Those events are still genuinely
+infected — the magnitude just has nothing meaningful left to display — so infected-vs-clean
+must be read from this explicit byte, computed at source float64 precision before the
+narrowing, and never inferred from the float32 magnitude field.
 
 **The downsampled stream is for rendering only.** Pathogen inflow and the wastewater grid
 are computed from *every* event in the window, before downsampling.
@@ -237,7 +248,7 @@ precise source available:
 Offsets are in record units within their own section, so each section decodes independently.
 Agents absent from the index are Susceptible throughout and shed nothing.
 
-`transmissions.bin` holds 5,490 records of `(tick u16, source u16, target u16)` derived from
+`transmissions.bin` holds 5,444 records of `(tick u16, source u16, target u16)` derived from
 `exposed_started_time` + `SourceAgentId` — exact, unlike the v1 bundle. Weekly rather than
 daily pathogen sampling keeps this artifact near 2 MB; weekly is sufficient because the
 samples drive per-agent shedding display, while the charts and wastewater grid use their own
@@ -257,7 +268,7 @@ so a consumer never has to infer it from the numbers.
 
 ### Wastewater — `wastewater.bin` + `wastewater_regions.json`
 
-Unchanged regions × time-series interface. 633 populated 0.02° cells × 5,112 hourly bins as
+Unchanged regions × time-series interface. 632 populated 0.02° cells × 5,112 hourly bins as
 `float32` ≈ 12.9 MB, with region geometry in the sidecar JSON. Cell size stays a CLI flag.
 
 ### Size summary
@@ -265,12 +276,12 @@ Unchanged regions × time-series interface. 633 populated 0.02° cells × 5,112 
 | Artifact | Size |
 |---|---:|
 | stays | 52 MB |
-| poops | 30 MB |
+| poops | 33 MB |
 | wastewater | 13 MB |
 | disease + transmissions | ~2 MB |
 | aggregates | ~0.5 MB |
 | venues | 0.11 MB |
-| **Total** | **~98 MB** |
+| **Total** | **101.7 MB (20 files)** |
 
 ## 5. Dwell / Travel Movement Model
 

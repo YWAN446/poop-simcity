@@ -131,4 +131,47 @@ describe("loadBundleV2", () => {
     const fetchFn = fakeFetch({ "stays_tick.u16": undefined });
     await expect(loadBundleV2("/data/t", fetchFn)).rejects.toThrow(/stays_tick/);
   });
+
+  describe("cross-artifact consistency", () => {
+    it("rejects venue arrays that disagree on length with each other", async () => {
+      const fetchFn = fakeFetch({ "venues_lat.f32": bin(new Float32Array([32.7])) });
+      await expect(loadBundleV2("/data/t", fetchFn)).rejects.toThrow(/venue/i);
+    });
+
+    it("rejects a venue count that disagrees with manifest.numVenues", async () => {
+      const fetchFn = fakeFetch({
+        "manifest.json": { ...MANIFEST, numVenues: 99 },
+      });
+      await expect(loadBundleV2("/data/t", fetchFn)).rejects.toThrow(/numVenues/);
+    });
+
+    it("rejects stays arrays that disagree on length with each other", async () => {
+      const fetchFn = fakeFetch({
+        "stays_dwell.u16": bin(new Uint16Array([4, 6])),
+      });
+      await expect(loadBundleV2("/data/t", fetchFn)).rejects.toThrow(/stays/i);
+    });
+
+    it("rejects a stays_index whose counts don't sum to the stays array length", async () => {
+      const fetchFn = fakeFetch({
+        "stays_index.json": [
+          { agentId: 0, offset: 0, count: 2 },
+          { agentId: 1, offset: 2, count: 5 },
+        ],
+      });
+      await expect(loadBundleV2("/data/t", fetchFn)).rejects.toThrow(/stays_index/);
+    });
+
+    it("rejects poop arrays that disagree on length with each other", async () => {
+      const fetchFn = fakeFetch({ "poops_infected.u8": bin(new Uint8Array([1])) });
+      await expect(loadBundleV2("/data/t", fetchFn)).rejects.toThrow(/poop/i);
+    });
+
+    it("rejects a wastewater matrix whose length doesn't match regions * numBins", async () => {
+      const fetchFn = fakeFetch({
+        "wastewater.bin": bin(new Float32Array([1])),
+      });
+      await expect(loadBundleV2("/data/t", fetchFn)).rejects.toThrow(/wastewater/i);
+    });
+  });
 });

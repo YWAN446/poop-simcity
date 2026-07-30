@@ -1211,6 +1211,25 @@ git commit -m "feat: disease timelines from exact onset times, binary encoded"
 
 Both read the poop parquet directly so downsampling cannot affect them.
 
+> **Amendment (post-implementation, 2026-07-29): SEIR is sampled at bin close, not bin
+> open.** The reference code and tests below describe and test a *bin-open* convention —
+> each bin's SEIR counts taken from the state at `gridTicks[i]`, the bin's opening tick.
+> That convention was superseded during implementation and does **not** match the shipped
+> code. As built, `gridTicks[i]` is still bin `i`'s **opening** tick, but `seir[state][i]`
+> is the population state at that bin's **closing** tick — the last transition at or before
+> the bin's last tick, not its first. This is deliberate: it makes SEIR describe the same
+> closed interval `[gridTicks[i], gridTicks[i] + bin_ticks)` that `pathogenInflow` already
+> sums over, whereas bin-open SEIR and bin-summed inflow would describe two different
+> intervals under the same `gridTicks[i]` index. It differs deliberately from v1's
+> `aggregates.py::seir_counts_over_time`, which samples at each bin's opening tick. The
+> bundle records the convention explicitly as `"seirSampledAt": "binEnd"` in
+> `aggregates.json` so a consumer never has to infer it from the numbers. See
+> `preprocess/poop_simcity_preprocess/aggregates_v2.py` (`seir_hourly` and
+> `build_aggregates_v2` docstrings) and `preprocess/tests/test_aggregates_v2.py` for the
+> convention actually shipped and tested. This note does not rewrite the task's reference
+> code or tests below — it flags that re-running this task verbatim would reconstruct the
+> wrong (bin-open) convention.
+
 **Files:**
 - Create: `preprocess/poop_simcity_preprocess/aggregates_v2.py`
 - Create: `preprocess/poop_simcity_preprocess/wastewater_v2.py`

@@ -54,6 +54,15 @@ export interface Aggregates {
   gridTicks: number[];
   seir: { S: number[]; E: number[]; I: number[]; R: number[] };
   pathogenInflow: number[];
+  /**
+   * When each bin's SEIR counts are sampled, relative to `gridTicks[i]`. v1 bundles omit
+   * this field and sample at each bin's OPENING tick (`gridTicks[i]` itself). v2 bundles
+   * set this to `"binEnd"`: `gridTicks[i]` is still bin `i`'s opening tick, but
+   * `seir[state][i]` is the population state at that bin's CLOSING tick, so SEIR
+   * describes the same closed interval `pathogenInflow` sums over. Optional and
+   * undefined-safe so v1 runtime behaviour (bin-open sampling) is unaffected.
+   */
+  seirSampledAt?: "binEnd";
 }
 
 export interface WastewaterRegion {

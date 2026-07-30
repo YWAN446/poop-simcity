@@ -12,8 +12,10 @@ import {
   venueOccupancyData, makeVenueOccupancyLayer, poopDataV2,
   wastewaterDataV2, makeWastewaterLayerV2, wastewaterGlobalMaxV2,
   transmissionArcDataV2, makeArcLayerV2,
+  infectionGlowData, makeInfectionGlowLayerV2,
 } from "../render/layersV2";
 import type { LayerFlags } from "./LayerToggles";
+import { usePulse } from "../hooks/usePulse";
 import { tickToDate } from "../sim/timeMapping";
 import { dayNightTint } from "../render/theme";
 
@@ -25,6 +27,9 @@ export function MapView({
   // Scans ~3.2M floats; compute once per bundle and reuse across every frame so
   // the wastewater layer's color scale stays comparable over the whole playback.
   const wwMax = useMemo(() => wastewaterGlobalMaxV2(bundle), [bundle]);
+  // Driven by rAF rather than the playback clock, so the outbreak keeps breathing
+  // while paused.
+  const pulse = usePulse();
 
   // The frame is mutated in place here and read by every layer below, so this must
   // run before any layer is constructed.
@@ -36,6 +41,9 @@ export function MapView({
   if (flags.poops) layers.push(makePoopLayer(poopDataV2(bundle, tick)));
   if (flags.agents) {
     layers.push(makeTravelTrailLayer(frame, tick));
+    // Behind the sprites, so the halo reads as a glow around each agent.
+    const glow = infectionGlowData(frame);
+    if (glow.length > 0) layers.push(makeInfectionGlowLayerV2(glow, pulse));
     layers.push(makeAgentLayerV2(agentBinaryData(frame, hour), tick));
   }
   if (flags.arcs) layers.push(makeArcLayerV2(transmissionArcDataV2(bundle, frame, tick)));

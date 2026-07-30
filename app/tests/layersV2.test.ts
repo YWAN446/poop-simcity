@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import {
   agentBinaryData, countVenuesByTypeV2, poopDataV2, venueOccupancyData,
   wastewaterDataV2, wastewaterBinIndexV2, wastewaterGlobalMaxV2,
-  transmissionArcDataV2,
+  transmissionArcDataV2, infectionGlowData,
 } from "../src/render/layersV2";
 import { createAgentFrame, updateAgentFrame, type AgentFrame } from "../src/render/agentFrame";
 import { Presence } from "../src/sim/dwell";
@@ -70,6 +70,61 @@ describe("agentBinaryData", () => {
     // Agent 0 must be drawn last, so its position occupies the final vertex.
     const lastLon = data.attributes.getPosition.value[2];
     expect(lastLon).toBeCloseTo(f.positions[0], 5);
+  });
+});
+
+describe("infectionGlowData", () => {
+  // Non-contiguous agent ids, so treating an id as a slot (or vice versa) fails
+  // rather than coincidentally working the way ids 0..N-1 would.
+  function glowBundle(transitions: Map<number, [number, number][]>): BundleV2 {
+    const b = makeBundle();
+    b.agentIds = new Int32Array([900, 17, 5]);
+    b.stayIndex = new Map([
+      [900, { offset: 0, count: 1 }],
+      [17, { offset: 1, count: 1 }],
+      [5, { offset: 0, count: 1 }],
+    ]);
+    b.manifest = { ...b.manifest, numVenues: 2 } as BundleV2["manifest"];
+    b.transitionsByAgent = transitions;
+    return b;
+  }
+
+  it("includes only Exposed and Infectious agents", () => {
+    // 900 Exposed, 17 Infectious, 5 has no transitions so stays Susceptible.
+    const b = glowBundle(new Map<number, [number, number][]>([
+      [900, [[0, 1]]],
+      [17, [[0, 2]]],
+    ]));
+    const f = createAgentFrame(b);
+    updateAgentFrame(f, b, 5);
+    const glow = infectionGlowData(f);
+    expect(glow).toHaveLength(2);
+    expect(glow.map((g) => g.code).sort()).toEqual([1, 2]);
+  });
+
+  it("is empty before anyone is infected, so the layer can be skipped", () => {
+    const b = glowBundle(new Map());
+    const f = createAgentFrame(b);
+    updateAgentFrame(f, b, 5);
+    expect(infectionGlowData(f)).toHaveLength(0);
+  });
+
+  it("reads each agent's own jittered position, not another slot's", () => {
+    const b = glowBundle(new Map<number, [number, number][]>([[17, [[0, 2]]]]));
+    const f = createAgentFrame(b);
+    updateAgentFrame(f, b, 5);
+    const [only] = infectionGlowData(f);
+    // Agent 17 occupies slot 1; its glow must sit on slot 1's position.
+    expect(only.position[0]).toBeCloseTo(f.positions[1 * 2], 10);
+    expect(only.position[1]).toBeCloseTo(f.positions[1 * 2 + 1], 10);
+  });
+
+  it("skips agents that have not checked in yet", () => {
+    const b = glowBundle(new Map<number, [number, number][]>([[900, [[0, 2]]]]));
+    b.stayIndex = new Map([[17, { offset: 1, count: 1 }]]); // 900 has no stays
+    const f = createAgentFrame(b);
+    updateAgentFrame(f, b, 5);
+    expect(infectionGlowData(f)).toHaveLength(0);
   });
 });
 

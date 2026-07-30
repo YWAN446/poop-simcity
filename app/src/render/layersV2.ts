@@ -75,6 +75,62 @@ export function makeAgentLayerV2(data: AgentBinaryData, updateTrigger: number) {
   });
 }
 
+export interface GlowDatum {
+  position: [number, number];
+  /** Disease state code; only 1 (Exposed) and 2 (Infectious) ever appear here. */
+  code: number;
+}
+
+/**
+ * The Exposed and Infectious agents, which get a breathing halo behind them.
+ *
+ * Walks `frame.order` rather than every slot, so it sees only visible agents and
+ * inherits the same draw ordering. The set is small even at the epidemic's peak
+ * (~1,900 of 10,000 agents), so this allocates per frame like the other data
+ * builders rather than using a scratch buffer.
+ */
+export function infectionGlowData(frame: AgentFrame): GlowDatum[] {
+  const out: GlowDatum[] = [];
+  for (let v = 0; v < frame.visible; v++) {
+    const slot = frame.order[v];
+    const code = frame.codes[slot];
+    if (code === 1 || code === 2) {
+      out.push({
+        position: [frame.positions[slot * 2], frame.positions[slot * 2 + 1]],
+        code,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * Soft breathing halo behind Exposed/Infectious agents so an outbreak glows out of
+ * the calm crowd. `pulse` in [0,1] modulates radius and alpha.
+ *
+ * Deliberately not day/night tinted: infections should glow through the night,
+ * which is the one time the map is dim enough to lose them.
+ */
+export function makeInfectionGlowLayerV2(data: GlowDatum[], pulse: number) {
+  return new ScatterplotLayer<GlowDatum>({
+    id: "infection-glow",
+    data,
+    getPosition: (d) => d.position,
+    getFillColor: (d) => {
+      const infectious = d.code === 2;
+      const alpha = Math.round((infectious ? 125 : 70) * (0.45 + 0.55 * pulse));
+      return infectious ? [235, 62, 45, alpha] : [245, 176, 48, alpha];
+    },
+    getRadius: (d) => (d.code === 2 ? 1300 : 950) * (0.8 + 0.4 * pulse),
+    radiusUnits: "meters",
+    radiusMinPixels: 9,
+    radiusMaxPixels: 46,
+    stroked: false,
+    pickable: false,
+    updateTriggers: { getFillColor: pulse, getRadius: pulse },
+  });
+}
+
 /**
  * A faint dot behind each travelling agent. Travel occupies only a few percent of
  * an agent's timeline, so without a distinct treatment commute waves are invisible

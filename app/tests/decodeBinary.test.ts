@@ -55,3 +55,25 @@ describe("decodePoopEvents", () => {
     expect(p.infected[0]).toBe(1);
   });
 });
+
+describe("stale-bundle guards", () => {
+  // A bundle from before the pathogen field was dropped: 18-byte records. Without
+  // the guard this decodes silently — the fractional count is truncated when
+  // sizing the arrays and every read still lands inside the larger buffer, so you
+  // get byte-misaligned garbage rather than an error.
+  it("rejects a poops.bin whose length is not a whole number of records", () => {
+    const stale = new ArrayBuffer(3 * 18);
+    expect(() => decodePoopEvents(stale)).toThrow(/poops\.bin.*54 bytes.*14-byte/s);
+  });
+
+  it("rejects an agents.bin whose length is not a whole number of records", () => {
+    expect(() => decodeAgentWaypoints(new ArrayBuffer(13 * 2 + 5))).toThrow(
+      /agents\.bin.*13-byte/s,
+    );
+  });
+
+  it("still accepts an empty buffer", () => {
+    expect(decodePoopEvents(new ArrayBuffer(0)).count).toBe(0);
+    expect(decodeAgentWaypoints(new ArrayBuffer(0)).count).toBe(0);
+  });
+});

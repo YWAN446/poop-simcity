@@ -29,8 +29,8 @@ a scrubbable timeline with a day/night cycle.
 ## Quick start (run it on your laptop)
 
 **Prerequisites:** [Node.js](https://nodejs.org/) 18 or newer (`node --version`).
-That's all you need — the precomputed data bundle is included in the repo, so you
-don't need Python or the raw simulation data just to run the app.
+That's all you need — the Atlanta data bundle is included in the repo, so you don't
+need Python or the raw simulation data just to run the app.
 
 ```bash
 git clone <this-repo-url>
@@ -41,9 +41,26 @@ npm run dev
 
 Then open **http://localhost:5173** in your browser.
 
-First load fetches a ~31 MB data bundle, so give it a second. Press **Play**, drag
+First load fetches a ~30 MB data bundle, so give it a second. Press **Play**, drag
 the timeline to the highlighted **outbreak window**, and zoom into a cluster to
 watch the little characters turn amber and red.
+
+### Switching datasets
+
+The **dataset switcher** (top-left) chooses which simulation run to play back:
+
+| | agents | bundle |
+|---|---|---|
+| **Atlanta** (`dataset_00`) | 1,000 | committed — works straight from a clone |
+| **San Diego** (`dataset_sdc-10k`) | 10,000, with dwell-time movement | **not committed** (~89 MB) — build it first |
+
+Selecting San Diego before its bundle exists shows the exact command to generate it
+— the same one under **Developing → The `dataset_sdc-10k` bundle** below. The
+switcher stays usable on that screen, so you can go straight back to Atlanta.
+
+You can also deep-link a run with `?dataset=dataset_sdc-10k`, and a build can pin its
+own default — `npm run build:sdc-10k` opens on San Diego, which is how that demo is
+deployed, while a plain `npm run build` opens on Atlanta.
 
 ### Controls
 - **Play / Pause** (top-left) and the **Speed** slider (HUD) control playback.

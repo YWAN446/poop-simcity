@@ -112,6 +112,18 @@ gliding continuously.
 - [ ] **Retire the v1 render path** — `app/src/render/layers.ts` is now ~93% unreferenced by the
       app (only `makePoopLayer` is live), along with `useBundle.ts` and `usePulse.ts`. Deleting
       them is a clean separate change; deliberately not done alongside the v2 port.
+- [ ] **Preprocessor leaves orphaned artifacts behind** — both builders `makedirs(exist_ok=True)`
+      and then write only the files they currently produce, so anything from a previous build
+      with a different artifact set survives. Hit this for real when `poops_pathogen.f32` was
+      dropped: the rebuild silently kept the stale file, and the bundle only looked right after
+      deleting the directory and rebuilding. Two consequences worth closing — `dataset_00`'s
+      bundle is committed, so an orphan gets committed as a stale binary; and "what is actually
+      in this bundle" stops being answerable from the manifest alone.
+      Note the naive fix is dangerous: `--out` is a caller-supplied path, so wiping it before
+      writing risks deleting whatever someone points it at. Prefer reconciling against the
+      manifest's declared artifacts *after* writing — warn loudly by default, prune only behind
+      an explicit `--clean` flag. Worth a check in `verify_bundle_v2.py` too, which already
+      compares declared artifacts against disk and could fail on undeclared extras.
 - [ ] **Responsive layout** — make the HUD/legend usable on smaller screens.
 - [ ] **Access control (optional)** — gate the public demo to specific people via Cloudflare Access
       if it shouldn't be fully public.

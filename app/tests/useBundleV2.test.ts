@@ -39,16 +39,40 @@ describe("useBundleV2", () => {
     expect(result.current).toMatchObject({ message: "stays_tick.u16 404" });
   });
 
-  it("ignores a resolution that lands after unmount", async () => {
-    let resolve!: (v: unknown) => void;
-    loadBundleV2.mockReturnValue(new Promise((r) => { resolve = r; }));
-    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { result, unmount } = renderHook(() => useBundleV2("/data/x"));
-    unmount();
-    resolve({ manifest: {} });
+  // NOTE: this replaces a prior test named "ignores a resolution that lands after
+  // unmount", which asserted `result.current.status` stayed "loading" and that no
+  // console.error fired post-unmount. Both assertions passed whether or not the
+  // `cancelled` guard existed: React 18 silently drops a setState call on an
+  // unmounted component (no warning, no re-render, so `result.current` — a
+  // snapshot from the last commit before unmount — can never reflect it either
+  // way). It was verified by deleting the guard entirely; the old test still
+  // passed 100% of the time. There is no way to observe this stack silently
+  // no-op a setState, so that scenario isn't a meaningful thing to assert on.
+  //
+  // The guard's actual job — ignoring a *stale* in-flight load once a newer one
+  // has superseded it — has a real, observable failure mode while the component
+  // is still mounted: rerender with a new `base` before the old promise settles,
+  // let the newer load win, then resolve the old one. Without the guard, the old
+  // `.then` still calls `setState` unconditionally and clobbers the current state
+  // with stale data.
+  it("ignores a stale resolution superseded by a newer load", async () => {
+    let resolveFirst!: (v: unknown) => void;
+    loadBundleV2.mockImplementationOnce(() => new Promise((r) => { resolveFirst = r; }));
+    const secondBundle = { manifest: { runId: "second" } };
+    loadBundleV2.mockImplementationOnce(() => Promise.resolve(secondBundle));
+
+    const { result, rerender } = renderHook(
+      ({ base }) => useBundleV2(base),
+      { initialProps: { base: "/data/first" } },
+    );
+    rerender({ base: "/data/second" });
+    await waitFor(() =>
+      expect(result.current).toMatchObject({ status: "ready", bundle: secondBundle }),
+    );
+
+    // The superseded first load settles after the second one already won.
+    resolveFirst({ manifest: { runId: "first" } });
     await new Promise((r) => setTimeout(r, 0));
-    expect(result.current.status).toBe("loading");   // never advanced post-unmount
-    expect(errors).not.toHaveBeenCalled();           // no setState-after-unmount warning
-    errors.mockRestore();
+    expect(result.current).toMatchObject({ status: "ready", bundle: secondBundle });
   });
 });

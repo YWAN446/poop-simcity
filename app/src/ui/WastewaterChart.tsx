@@ -29,6 +29,20 @@ export function WastewaterChart({ agg, hourBin }: { agg: Aggregates; hourBin: nu
         { label: "Date" },
         { label: "Pathogen", stroke: "#7a6baa", fill: "rgba(122,107,170,0.3)" },
       ],
+      axes: [
+        {},
+        {
+          // Pathogen totals run into the billions (vs. SEIR's low thousands), and
+          // uPlot's default y-axis gutter is a fixed 50px sized for the default
+          // comma-grouped formatter — wide raw numbers like "500,000" overflow it
+          // and get left-clipped to "00,000". Compact notation (matching the
+          // readout line below the chart) keeps labels short enough to fit, and
+          // widening the gutter a bit gives headroom for the widest cases (e.g.
+          // "15.2B").
+          values: (_u, vals) => vals.map((v) => NUM_FMT.format(v)),
+          size: 60,
+        },
+      ],
     };
     plot.current = new uPlot(opts, data, ref.current);
     return () => {

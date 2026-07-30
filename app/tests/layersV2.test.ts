@@ -86,6 +86,42 @@ describe("venueOccupancyData", () => {
     expect(rows[0].position[0]).toBeCloseTo(-117.0, 5);
     expect(rows[1].type).toBe(3);
   });
+
+  it("keeps the same data array and row identity across frames, mutating occupancy in place", () => {
+    // deck.gl invalidates every attribute for every venue when the `data` array
+    // it's handed changes identity, which also makes `updateTriggers: { getRadius }`
+    // inert. venueOccupancyData must hand back the *same* array (and the same row
+    // objects within it) across calls for one bundle, updating only `occupancy`.
+    const b = makeBundle();
+    const f = createAgentFrame(b);
+
+    updateAgentFrame(f, b, -1); // before either agent's single stay starts -> both Absent
+    const first = venueOccupancyData(b, f);
+    const firstRow0 = first[0];
+    expect(first[0].occupancy).toBe(0);
+
+    updateAgentFrame(f, b, 5); // both agents now dwelling at venue 0
+    const second = venueOccupancyData(b, f);
+
+    expect(second).toBe(first);           // stable array identity
+    expect(second[0]).toBe(firstRow0);    // stable row identity
+    expect(second[0].occupancy).toBe(2);  // occupancy actually updated in place
+    expect(second[0].position[0]).toBeCloseTo(-117.0, 5); // static fields untouched
+  });
+
+  it("does not share cached rows between distinct bundles", () => {
+    const b1 = makeBundle();
+    const b2 = makeBundle();
+    const f1 = createAgentFrame(b1);
+    const f2 = createAgentFrame(b2);
+    updateAgentFrame(f1, b1, 5);
+    updateAgentFrame(f2, b2, -1);
+    const rows1 = venueOccupancyData(b1, f1);
+    const rows2 = venueOccupancyData(b2, f2);
+    expect(rows1).not.toBe(rows2);
+    expect(rows1[0].occupancy).toBe(2);
+    expect(rows2[0].occupancy).toBe(0);
+  });
 });
 
 describe("poopDataV2", () => {

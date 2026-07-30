@@ -2,7 +2,7 @@
 import { ArcLayer, IconLayer, PolygonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import type { AgentFrame } from "./agentFrame";
 import { Presence } from "../sim/dwell";
-import { STATE_COLORS, VENUE_COLORS, dayNightTint, scaleRgb } from "./theme";
+import { STATE_COLORS, VENUE_COLORS, dayNightTint } from "./theme";
 import { hourBinIndex } from "../sim/timeMapping";
 import type { BundleV2 } from "../types2";
 
@@ -35,11 +35,14 @@ export function agentBinaryData(frame: AgentFrame, hour: number): AgentBinaryDat
     const slot = frame.order[v];
     positionScratch[v * 2] = frame.positions[slot * 2];
     positionScratch[v * 2 + 1] = frame.positions[slot * 2 + 1];
-    const [r, g, b, a] = scaleRgb(STATE_COLORS[frame.codes[slot]], tint);
-    colorScratch[v * 4] = r;
-    colorScratch[v * 4 + 1] = g;
-    colorScratch[v * 4 + 2] = b;
-    colorScratch[v * 4 + 3] = a;
+    // Inlined `scaleRgb` (theme.ts): that helper allocates a fresh 4-element
+    // array per call, which at up to 10,000 visible agents/frame is a hot-loop
+    // allocation source. Write straight into the reused colorScratch buffer.
+    const c = STATE_COLORS[frame.codes[slot]];
+    colorScratch[v * 4] = Math.round(c[0] * tint);
+    colorScratch[v * 4 + 1] = Math.round(c[1] * tint);
+    colorScratch[v * 4 + 2] = Math.round(c[2] * tint);
+    colorScratch[v * 4 + 3] = c[3];
   }
 
   return {
@@ -108,18 +111,37 @@ export interface VenueOccupancyDatum {
   occupancy: number;
 }
 
+// Venue position/type never change once a bundle is loaded — only occupancy
+// does, once per frame. Rebuilding all 12,134 row objects (and their position
+// arrays) every frame was worse than the allocation cost alone: because the
+// returned array's identity changed every call, deck.gl's attribute manager
+// saw a new `data` prop and invalidated *every* attribute (position, color,
+// radius) for every venue each frame, making `updateTriggers: { getRadius }`
+// a no-op in practice. Caching the rows per bundle and mutating `occupancy`
+// in place keeps the array (and each row object) identity stable, so deck.gl
+// only recomputes the attribute `updateTriggers` actually names.
+const venueRowsCache = new WeakMap<BundleV2, VenueOccupancyDatum[]>();
+
 export function venueOccupancyData(
   bundle: BundleV2,
   frame: AgentFrame,
 ): VenueOccupancyDatum[] {
   const { venues } = bundle;
-  const rows: VenueOccupancyDatum[] = new Array(venues.count);
-  for (let i = 0; i < venues.count; i++) {
-    rows[i] = {
-      position: [venues.lon[i], venues.lat[i]],
-      type: venues.type[i],
-      occupancy: frame.occupancy[i],
-    };
+  let rows = venueRowsCache.get(bundle);
+  if (!rows) {
+    rows = new Array(venues.count);
+    for (let i = 0; i < venues.count; i++) {
+      rows[i] = {
+        position: [venues.lon[i], venues.lat[i]],
+        type: venues.type[i],
+        occupancy: frame.occupancy[i],
+      };
+    }
+    venueRowsCache.set(bundle, rows);
+  } else {
+    for (let i = 0; i < rows.length; i++) {
+      rows[i].occupancy = frame.occupancy[i];
+    }
   }
   return rows;
 }

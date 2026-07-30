@@ -16,6 +16,10 @@ html, body, #root { margin: 0; height: 100%; }
   display: flex; flex-direction: column; gap: 8px; padding: 12px;
   background: rgba(20,20,26,0.72); border-radius: 14px; color: #eee;
   backdrop-filter: blur(6px); }
+/* The charts are 400px, so the panel should be too. Without this cap the coverage
+   line is a single unwrapped string and the whole HUD stretches to fit it. */
+.hud-coverage { max-width: 400px; font: 600 11px system-ui; color: #aaa;
+  line-height: 1.45; text-wrap: pretty; }
 .chart-block { display: flex; flex-direction: column; }
 .chart-readout { margin-top: 3px; }
 .readout-date { font: 600 12px ui-monospace, monospace; color: #d8d8df; }

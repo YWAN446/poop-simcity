@@ -27,7 +27,7 @@ const RESOLUTION_PHRASES: Record<string, string> = {
 function cleanPoopCoverageNote(cleanPoopKeepFraction: number): string {
   if (cleanPoopKeepFraction >= 1) return "";
   const pct = Math.round(cleanPoopKeepFraction * 100);
-  return ` · only ${pct}% of clean poops are shown (every infected one is kept), so infected splashes are over-represented on the map`;
+  return ` · clean poops sampled at ${pct}% (all infected kept), so infected are over-represented`;
 }
 
 /** Honest, manifest-derived summary of the simulated window and its precision. */

@@ -18,9 +18,7 @@ export function Hud({
   );
   return (
     <div className="hud">
-      <div style={{ font: "600 11px system-ui", color: "#aaa" }}>
-        {coverageLabel(manifest)}
-      </div>
+      <div className="hud-coverage">{coverageLabel(manifest)}</div>
       <SeirChart agg={agg} hourBin={bin} />
       <WastewaterChart agg={agg} hourBin={bin} />
       <label className="hud-speed">

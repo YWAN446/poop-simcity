@@ -22,13 +22,19 @@ def _grid(window, cadence_sec):
 def seir_hourly(transitions, num_agents, window, cadence_sec=3600):
     """Count agents in each SEIR state at each hourly bin.
 
-    Bin `gi` covers ticks `[gi*bin_ticks, (gi+1)*bin_ticks)` (the last bin is
-    truncated to `window.num_ticks`). An agent's state for that bin is its
-    last transition at or before the bin's LAST tick, not the tick the bin
-    opens on - a transition partway through an hour already describes that
-    agent for the rest of the hour. Agents with no transitions, and agents
-    before their first transition, are Susceptible. Every bin's four counts
-    sum to `num_agents`.
+    Bin `gi` covers ticks `[gi*bin_ticks, (gi+1)*bin_ticks)`, truncated to the
+    window's last valid tick index (`window.num_ticks - 1`) for a short final
+    bin. `gridTicks[gi]` (see `build_aggregates_v2`) is that bin's OPENING
+    tick, but `seir[state][gi]` describes the population at the bin's
+    CLOSING tick - an agent's state for bin `gi` is its last transition at or
+    before that bin's last tick, not the tick the bin opens on, so a
+    transition partway through an hour already describes that agent for the
+    rest of the hour. This is a deliberate difference from v1's
+    `aggregates.py::seir_counts_over_time`, which samples at each bin's
+    opening tick; v2 samples at bin close instead so SEIR describes the same
+    closed hourly interval that `pathogenInflow` sums over. Agents with no
+    transitions, and agents before their first transition, are Susceptible.
+    Every bin's four counts sum to `num_agents`.
 
     Vectorized per agent: at real scale there are ~5,490 agents and ~5,112
     hourly bins, so a naive "for agent: for bin: bisect" loop is ~28M scalar
@@ -38,10 +44,13 @@ def seir_hourly(transitions, num_agents, window, cadence_sec=3600):
     """
     grid_ticks, bin_ticks = _grid(window, cadence_sec)
     num_bins = len(grid_ticks)
-    # Exclusive upper bound of ticks covered by each bin, capped at the
-    # window length so a short final bin doesn't claim ticks beyond it.
-    bin_end = np.minimum((np.arange(num_bins, dtype=np.int64) + 1) * bin_ticks,
-                         window.num_ticks)
+    # Last valid tick index covered by each bin, capped at the window's last
+    # valid tick (num_ticks - 1) so a short final bin doesn't claim ticks
+    # beyond the window.
+    last_tick_in_bin = np.minimum(
+        (np.arange(num_bins, dtype=np.int64) + 1) * bin_ticks - 1,
+        window.num_ticks - 1,
+    )
     col = np.arange(num_bins)
     counts = np.zeros((len(STATE_NAMES), num_bins), dtype=np.int64)
 
@@ -51,9 +60,9 @@ def seir_hourly(transitions, num_agents, window, cadence_sec=3600):
             continue
         arr = np.array(trans, dtype=np.int64)
         ticks, codes = arr[:, 0], arr[:, 1]
-        # Count of transitions strictly before each bin's exclusive end;
+        # Count of transitions at-or-before each bin's last tick;
         # idx - 1 is that bin's last transition at-or-before it, or -1 (S).
-        idx = np.searchsorted(ticks, bin_end, side="left") - 1
+        idx = np.searchsorted(ticks, last_tick_in_bin, side="right") - 1
         state = np.zeros(num_bins, dtype=np.int64)
         has_transition = idx >= 0
         state[has_transition] = codes[idx[has_transition]]
@@ -79,9 +88,20 @@ def pathogen_inflow_hourly(dataset_dir, profile, window, cadence_sec=3600,
 
 def build_aggregates_v2(dataset_dir, profile, window, transitions, num_agents,
                         cadence_sec=3600, batch_size=2_000_000):
+    """Bundle hourly SEIR counts and pathogen inflow.
+
+    `gridTicks[i]` is bin `i`'s OPENING tick (bin `i` spans
+    `[gridTicks[i], gridTicks[i] + bin_ticks)`), but `seir[state][i]`
+    describes the population at that bin's CLOSING tick - see `seir_hourly`'s
+    docstring. `seirSampledAt: "binEnd"` records this explicitly so a
+    downstream consumer never has to infer it from the numbers (and so it
+    doesn't get confused with v1's `aggregates.py`, which samples SEIR at
+    bin open).
+    """
     grid_ticks, _ = _grid(window, cadence_sec)
     return {
         "cadenceSec": cadence_sec,
+        "seirSampledAt": "binEnd",
         "startTime": window.start.isoformat(),
         "gridTicks": grid_ticks,
         "seir": seir_hourly(transitions, num_agents, window, cadence_sec),

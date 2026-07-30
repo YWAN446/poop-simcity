@@ -55,6 +55,7 @@ def test_aggregates_bundle_shape(tmp_path):
     ])
     agg = build_aggregates_v2(str(tmp_path), SDC_10K, WINDOW, {0: [(6, 1)]}, 2)
     assert agg["cadenceSec"] == 3600
+    assert agg["seirSampledAt"] == "binEnd"
     assert agg["gridTicks"] == [0, 12, 24]
     assert len(agg["pathogenInflow"]) == 3
     assert agg["seir"]["E"][0] == 1

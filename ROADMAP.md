@@ -2,7 +2,8 @@
 
 A living document tracking what's built and what's planned.
 
-- **Live demo:** https://poop-simcity.pages.dev
+- **Live demos:** https://poop-simcity-sdc-10k.pages.dev (San Diego, 10k agents, dwell-time)
+  · https://poop-simcity.pages.dev (Atlanta, 1k agents — frozen v1)
 - **Repo:** https://github.com/YWAN446/poop-simcity (private)
 - **Paper:** *Where do We Poop? City-Wide Simulation of Defecation Behavior for
   Wastewater-Based Epidemiology* — [arXiv:2601.04231](https://arxiv.org/abs/2601.04231)
@@ -12,10 +13,12 @@ plays back a simulated year of 1,000 agents in Fulton County — agents moving
 between venues, an SEIR outbreak, defecation events, and the resulting wastewater
 pathogen signal — on a real map with a scrubbable timeline.
 
-**v2 in review ([PR #1](https://github.com/YWAN446/poop-simcity/pull/1)):** a second
-run, `dataset_sdc-10k` — 10,000 agents in San Diego County — whose check-ins carry
-a `CheckoutTime`, so agents now **dwell at venues for real durations** instead of
-gliding continuously.
+**v2 deployed, in review ([PR #1](https://github.com/YWAN446/poop-simcity/pull/1)):** a
+second run, `dataset_sdc-10k` — 10,000 agents in San Diego County — whose check-ins
+carry a `CheckoutTime`, so agents now **dwell at venues for real durations** instead
+of gliding continuously. Live at
+[poop-simcity-sdc-10k.pages.dev](https://poop-simcity-sdc-10k.pages.dev) as its own
+Cloudflare Pages project, so the Atlanta demo is untouched.
 
 ---
 

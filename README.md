@@ -1,6 +1,10 @@
 # Poop SimCity 🚽🏙️
 
-**▶️ Live demo: https://poop-simcity.pages.dev** — no install needed, just open it.
+**▶️ Live demos** — no install needed, just open them:
+
+- **San Diego, 10,000 agents, dwell-time movement — https://poop-simcity-sdc-10k.pages.dev**
+  (this checkout builds that one)
+- Atlanta, 1,000 agents — https://poop-simcity.pages.dev (frozen v1 deployment)
 
 See [ROADMAP.md](ROADMAP.md) for what's built and what's planned.
 

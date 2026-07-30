@@ -2050,6 +2050,7 @@ const ARTIFACTS = {
   staysVenue: "stays_venue.u16", staysIndex: "stays_index.json",
   poopsTick: "poops_tick.u16", poopsLon: "poops_lon.u16",
   poopsLat: "poops_lat.u16", poopsPathogen: "poops_pathogen.f32",
+  poopsInfected: "poops_infected.u8",
   disease: "disease.bin", diseaseIndex: "disease_index.json",
   transmissions: "transmissions.bin",
   aggregates: "aggregates.json",
@@ -2098,6 +2099,7 @@ const FILES: Record<string, unknown> = {
   "poops_lon.u16": bin(new Uint16Array([0, 65535])),
   "poops_lat.u16": bin(new Uint16Array([32768, 0])),
   "poops_pathogen.f32": bin(new Float32Array([0, 9])),
+  "poops_infected.u8": bin(new Uint8Array([0, 1])),
   "disease.bin": diseaseBin(),
   "disease_index.json": [
     { agentId: 0, transOffset: 0, transCount: 2, sampleOffset: 0, sampleCount: 1 },
@@ -2138,6 +2140,7 @@ describe("loadBundleV2", () => {
     expect(b.stays.count).toBe(3);
     expect(b.stays.dwell[2]).toBe(12);
     expect(b.poops.count).toBe(2);
+    expect(Array.from(b.poops.infected)).toEqual([0, 1]);
     expect(b.wastewater.values.length).toBe(2);
   });
 
@@ -2234,6 +2237,13 @@ export interface PoopsV2 {
   lonQ: Uint16Array;
   latQ: Uint16Array;
   pathogen: Float32Array;
+  /**
+   * Authoritative infected flag. Do NOT infer this from `pathogen > 0`: the
+   * simulation's decay model reaches 4.89e-161, so about 20% of pathogen-bearing
+   * events underflow to 0 in the float32 magnitude field. This byte is computed at
+   * source float64 precision.
+   */
+  infected: Uint8Array;
   count: number;
 }
 
@@ -2307,13 +2317,14 @@ export async function loadBundleV2(
   const [
     venuesLon, venuesLat, venuesType, venuesId,
     staysTick, staysDwell, staysVenue, staysIndex,
-    poopsTick, poopsLon, poopsLat, poopsPathogen,
+    poopsTick, poopsLon, poopsLat, poopsPathogen, poopsInfected,
     diseaseBuf, diseaseIndex, transmissionsBuf,
     aggregates, wastewaterBuf, wastewaterRegions,
   ] = await Promise.all([
     buf("venuesLon"), buf("venuesLat"), buf("venuesType"), buf("venuesId"),
     buf("staysTick"), buf("staysDwell"), buf("staysVenue"), json("staysIndex"),
     buf("poopsTick"), buf("poopsLon"), buf("poopsLat"), buf("poopsPathogen"),
+    buf("poopsInfected"),
     buf("disease"), json("diseaseIndex"), buf("transmissions"),
     json("aggregates"), buf("wastewater"), json("wastewaterRegions"),
   ]);
@@ -2346,6 +2357,7 @@ export async function loadBundleV2(
     lonQ: new Uint16Array(poopsLon),
     latQ: new Uint16Array(poopsLat),
     pathogen: new Float32Array(poopsPathogen),
+    infected: new Uint8Array(poopsInfected),
     count: poopsTick.byteLength / 2,
   };
 
@@ -2773,8 +2785,8 @@ function makeBundle(): BundleV2 {
     stays,
     stayIndex,
     agentIds: new Int32Array([0, 1, 2]),
-    poops: { tick: new Uint16Array(), lonQ: new Uint16Array(),
-             latQ: new Uint16Array(), pathogen: new Float32Array(), count: 0 },
+    poops: { tick: new Uint16Array(), lonQ: new Uint16Array(), latQ: new Uint16Array(),
+             pathogen: new Float32Array(), infected: new Uint8Array(), count: 0 },
     transitionsByAgent: new Map([[1, [[0, 2]]]]),   // agent 1 infectious from tick 0
     transmissions: { tick: new Uint16Array(), source: new Uint16Array(),
                      target: new Uint16Array(), count: 0 },
@@ -3014,6 +3026,7 @@ function makeBundle(): BundleV2 {
       lonQ: new Uint16Array([0, 32768, 65535]),
       latQ: new Uint16Array([0, 32768, 65535]),
       pathogen: new Float32Array([0, 5, 0]),
+      infected: new Uint8Array([0, 1, 0]),
       count: 3,
     },
     transitionsByAgent: new Map(),
@@ -3272,7 +3285,7 @@ export function poopDataV2(bundle: BundleV2, tick: number): PoopDatumV2[] {
     out.push({
       position: [bundle.poopLon(i), bundle.poopLat(i)],
       age: (tick - poops.tick[i]) / SPLASH_WINDOW_TICKS,
-      infected: poops.pathogen[i] > 0 ? 1 : 0,
+      infected: poops.infected[i],
     });
   }
   return out;

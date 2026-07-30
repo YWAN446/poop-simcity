@@ -106,7 +106,7 @@ gliding continuously.
 - [ ] **Auto-deploy** — connect the repo to Cloudflare Pages (or a GitHub Action) so pushes to
       `main` deploy automatically, instead of manual `npm run deploy`.
 - [ ] **Bundle size** — `agents.bin` (~18 MB) dominates the download; trim via downsampling or a
-      sparser encoding; code-split the JS. For `dataset_sdc-10k` the bundle is 101.7 MB and is
+      sparser encoding; code-split the JS. For `dataset_sdc-10k` the bundle is 89.1 MB and is
       **gitignored** rather than committed (regenerate with the README command in ~23 s), so a
       fresh clone can't run that view until it's rebuilt — revisit if the demo should host it.
 - [ ] **Retire the v1 render path** — `app/src/render/layers.ts` is now ~93% unreferenced by the

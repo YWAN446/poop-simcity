@@ -29,7 +29,7 @@ v1 design's future-work list). No UI dataset switcher — this build targets
   all exposures plus the complete take-off, peak and decline. Keeps every tick index below
   65,536 so tick fields fit `uint16`.
 - **All 10,000 agents** on the map. No population subsampling.
-- **Single bundle, no lazy loading.** 101.7 MB raw (20 files), roughly half that compressed.
+- **Single bundle, no lazy loading.** 89.1 MB raw (19 files), roughly half that compressed.
 - **Struct-of-arrays binary**, so every field decodes as a zero-copy typed array.
 - **Agent stays reference venues by index**; poop events carry quantized coordinates.
 - Clean-poop keep fraction and window bounds are CLI flags, not constants.
@@ -157,7 +157,7 @@ per-record loop. Ticks are indices from `windowStart`, `tick = (time − windowS
     "staysTick": "stays_tick.u16",   "staysDwell": "stays_dwell.u16",
     "staysVenue": "stays_venue.u16", "staysIndex": "stays_index.json",
     "poopsTick": "poops_tick.u16",   "poopsLon": "poops_lon.u16",
-    "poopsLat": "poops_lat.u16",     "poopsPathogen": "poops_pathogen.f32",
+    "poopsLat": "poops_lat.u16",
     "poopsInfected": "poops_infected.u8",
     "disease": "disease.bin",        "diseaseIndex": "disease_index.json",
     "transmissions": "transmissions.bin",
@@ -197,7 +197,7 @@ Boundary rules: stays beginning at or after `windowEnd` are dropped; a stay whos
 falls past `windowEnd` is clipped; an agent's final in-window stay has no travel successor
 and simply holds.
 
-### Poop events — `poops_tick.u16`, `poops_lon.u16`, `poops_lat.u16`, `poops_pathogen.f32`, `poops_infected.u8`
+### Poop events — `poops_tick.u16`, `poops_lon.u16`, `poops_lat.u16`, `poops_infected.u8`
 
 Sorted by tick, so the app keeps its forward-advancing stream pointer. Coordinates are
 quantized to `uint16` across the bbox, which gives ~2.3 m longitude and ~1.6 m latitude
@@ -208,17 +208,18 @@ up to 3 venues sharing a key.
 
 Every pathogen-bearing event is kept; clean events are deterministically downsampled to
 `cleanPoopKeepFraction` (default 0.3) by `agent_id` modulo. Each record is
-`tick u16 + lonQ u16 + latQ u16 + pathogen f32 + infected u8` — about 3.0M records × 11 bytes
-≈ 33 MB.
+`tick u16 + lonQ u16 + latQ u16 + infected u8` — about 3.1M records × 7 bytes ≈ 22.0 MB.
 
-`poops_infected.u8` exists because `poops_pathogen.f32 > 0` is not a safe test for
-infected-vs-clean: the simulation's pathogen decay model produces values as small as
-`4.89e-161`, far below float32's smallest positive subnormal (~1.4e-45), so
-**322,424 of 1,619,274 pathogen-bearing events in the window (19.9%) underflow to `0.0`**
-once `pathogen_level` is narrowed to `poops_pathogen.f32`. Those events are still genuinely
-infected — the magnitude just has nothing meaningful left to display — so infected-vs-clean
-must be read from this explicit byte, computed at source float64 precision before the
-narrowing, and never inferred from the float32 magnitude field.
+There is no per-event pathogen magnitude field. An earlier version of this design stored
+one (`poops_pathogen.f32`), but the simulation's pathogen decay model produces values as
+small as `4.89e-161`, far below float32's smallest positive subnormal (~1.4e-45), so
+**322,424 of 1,619,274 pathogen-bearing events in the window (19.9%) would underflow to
+`0.0`** once `pathogen_level` is narrowed to float32 — and no renderer ever read that
+magnitude anyway. `poops_infected.u8` is what actually drives every infected-vs-clean
+decision in the app: it is computed from the source float64 `pathogen_level` column
+(`> 0`) before any narrowing, so it is exact regardless of what a float32 copy of the
+magnitude would or wouldn't be able to represent. Storing a lossy, unread float column
+alongside it added nothing but confusion, so it was dropped rather than widened.
 
 **The downsampled stream is for rendering only.** Pathogen inflow and the wastewater grid
 are computed from *every* event in the window, before downsampling.
@@ -273,15 +274,17 @@ Unchanged regions × time-series interface. 632 populated 0.02° cells × 5,112 
 
 ### Size summary
 
+Recomputed from the built bundle (no `poops_pathogen.f32`; see above):
+
 | Artifact | Size |
 |---|---:|
-| stays | 52 MB |
-| poops | 33 MB |
-| wastewater | 13 MB |
-| disease + transmissions | ~2 MB |
-| aggregates | ~0.5 MB |
-| venues | 0.11 MB |
-| **Total** | **101.7 MB (20 files)** |
+| stays | 52.5 MB |
+| poops | 22.0 MB |
+| wastewater | 13.1 MB |
+| disease + transmissions | 1.1 MB |
+| aggregates | 0.2 MB |
+| venues | 0.2 MB |
+| **Total** | **89.1 MB (19 files)** |
 
 ## 5. Dwell / Travel Movement Model
 

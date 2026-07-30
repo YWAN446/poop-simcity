@@ -75,12 +75,13 @@ def main(argv=None):
           len(tick) == checkin_rows, f"bundle={len(tick)} parquet={checkin_rows}")
 
     ptick = _read(args.bundle, "poops_tick.u16", "<u2")
-    ppath = _read(args.bundle, "poops_pathogen.f32", "<f4")
+    plon = _read(args.bundle, "poops_lon.u16", "<u2")
+    plat = _read(args.bundle, "poops_lat.u16", "<u2")
     pinfected = _read(args.bundle, "poops_infected.u8", "<u1")
     check("poops are sorted by tick",
           bool(np.all(np.diff(ptick.astype("int64")) >= 0)))
     check("poop arrays are equal length",
-          len(ptick) == len(ppath) == len(pinfected))
+          len(ptick) == len(plon) == len(plat) == len(pinfected))
 
     infected_parquet = 0
     pf = pq.ParquetFile(os.path.join(args.dataset, f"{profile.poop_file}.parquet"))
@@ -89,20 +90,13 @@ def main(argv=None):
         df = batch.to_pandas()
         df = df[mask_in_window(df["time"], window)]
         infected_parquet += int((df["pathogen_level"] > 0).sum())
-    # The flag, not the float32 magnitude, is the source of truth for
-    # infected-vs-clean: pathogen_level's decay model reaches values (as
-    # small as ~1e-161) well below float32's smallest positive subnormal
-    # (~1.4e-45), so `poops_pathogen.f32 > 0` legitimately underflows for a
-    # real fraction of genuinely infected events. `poops_infected.u8` is
-    # computed from the source float64 column before that narrowing, so it
-    # must match the parquet exactly with no tolerance for drift.
+    # `poops_infected.u8` is the sole authoritative infected/clean flag: it is
+    # computed from the source float64 `pathogen_level` column before any
+    # narrowing, so (unlike a float32 magnitude, which this bundle does not
+    # even store) it must match the parquet exactly with no tolerance for drift.
     check("every pathogen-bearing poop survived downsampling",
           int((pinfected == 1).sum()) == infected_parquet,
           f"bundle={(pinfected == 1).sum()} parquet={infected_parquet}")
-    underflowed = int(((pinfected == 1) & (ppath == 0)).sum())
-    print(f"INFO  poops_pathogen.f32 underflows to 0.0 for "
-          f"{underflowed}/{int((pinfected == 1).sum())} infected events "
-          f"(expected and harmless - poops_infected.u8 is authoritative)")
 
     regions = json.loads(open(os.path.join(args.bundle,
                                            "wastewater_regions.json")).read())

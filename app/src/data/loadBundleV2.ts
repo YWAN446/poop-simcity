@@ -48,13 +48,13 @@ export async function loadBundleV2(
   const [
     venuesLon, venuesLat, venuesType, venuesId,
     staysTick, staysDwell, staysVenue, staysIndex,
-    poopsTick, poopsLon, poopsLat, poopsPathogen, poopsInfected,
+    poopsTick, poopsLon, poopsLat, poopsInfected,
     diseaseBuf, diseaseIndex, transmissionsBuf,
     aggregates, wastewaterBuf, wastewaterRegions,
   ] = await Promise.all([
     buf("venuesLon"), buf("venuesLat"), buf("venuesType"), buf("venuesId"),
     buf("staysTick"), buf("staysDwell"), buf("staysVenue"), json("staysIndex"),
-    buf("poopsTick"), buf("poopsLon"), buf("poopsLat"), buf("poopsPathogen"),
+    buf("poopsTick"), buf("poopsLon"), buf("poopsLat"),
     buf("poopsInfected"),
     buf("disease"), json("diseaseIndex"), buf("transmissions"),
     json("aggregates"), buf("wastewater"), json("wastewaterRegions"),
@@ -104,7 +104,6 @@ export async function loadBundleV2(
     tick: new Uint16Array(poopsTick),
     lonQ: new Uint16Array(poopsLon),
     latQ: new Uint16Array(poopsLat),
-    pathogen: new Float32Array(poopsPathogen),
     infected: new Uint8Array(poopsInfected),
     count: poopsTick.byteLength / 2,
   };
@@ -112,7 +111,7 @@ export async function loadBundleV2(
     "poop array lengths",
     {
       tick: poops.tick.length, lonQ: poops.lonQ.length, latQ: poops.latQ.length,
-      pathogen: poops.pathogen.length, infected: poops.infected.length,
+      infected: poops.infected.length,
     },
   );
 

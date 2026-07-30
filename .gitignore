@@ -12,7 +12,7 @@
 # without needing Python or the raw simulation data). Regenerate it with the
 # preprocessor if needed — see the README.
 
-# Exception: the dataset_sdc-10k bundle (101.7 MB across 20 files) is NOT
+# Exception: the dataset_sdc-10k bundle (89.1 MB across 19 files) is NOT
 # committed. That's a lot of binary history to add irreversibly, so whether to commit it is left to the
 # repo owner rather than done automatically. Regenerate it locally with the
 # preprocessor command documented in the README; dataset_00's bundle above

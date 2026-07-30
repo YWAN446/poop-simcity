@@ -35,7 +35,6 @@ function makeBundle(): BundleV2 {
       tick: new Uint16Array([0, 10, 40]),
       lonQ: new Uint16Array([0, 32768, 65535]),
       latQ: new Uint16Array([0, 32768, 65535]),
-      pathogen: new Float32Array([0, 5, 0]),
       infected: new Uint8Array([0, 1, 0]),
       count: 3,
     },

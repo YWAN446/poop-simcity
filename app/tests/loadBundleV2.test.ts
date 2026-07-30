@@ -8,7 +8,7 @@ const ARTIFACTS = {
   staysTick: "stays_tick.u16", staysDwell: "stays_dwell.u16",
   staysVenue: "stays_venue.u16", staysIndex: "stays_index.json",
   poopsTick: "poops_tick.u16", poopsLon: "poops_lon.u16",
-  poopsLat: "poops_lat.u16", poopsPathogen: "poops_pathogen.f32",
+  poopsLat: "poops_lat.u16",
   poopsInfected: "poops_infected.u8",
   disease: "disease.bin", diseaseIndex: "disease_index.json",
   transmissions: "transmissions.bin",
@@ -57,7 +57,6 @@ const FILES: Record<string, unknown> = {
   "poops_tick.u16": bin(new Uint16Array([1, 5])),
   "poops_lon.u16": bin(new Uint16Array([0, 65535])),
   "poops_lat.u16": bin(new Uint16Array([32768, 0])),
-  "poops_pathogen.f32": bin(new Float32Array([0, 9])),
   "poops_infected.u8": bin(new Uint8Array([0, 1])),
   "disease.bin": diseaseBin(),
   "disease_index.json": [

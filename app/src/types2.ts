@@ -50,12 +50,12 @@ export interface PoopsV2 {
   tick: Uint16Array;
   lonQ: Uint16Array;
   latQ: Uint16Array;
-  pathogen: Float32Array;
   /**
-   * Authoritative infected flag. Do NOT infer this from `pathogen > 0`: the
-   * simulation's decay model reaches 4.89e-161, so about 20% of pathogen-bearing
-   * events underflow to 0 in the float32 magnitude field. This byte is computed at
-   * source float64 precision.
+   * Authoritative infected flag, computed at source float64 precision. There is no
+   * per-event pathogen magnitude field: the simulation's decay model reaches
+   * 4.89e-161, so a float32 magnitude column would read 0 for about 20% of
+   * pathogen-bearing events, and nothing in the app renders a magnitude anyway -
+   * see `poop_stream.py`'s module docstring for the full rationale.
    */
   infected: Uint8Array;
   count: number;

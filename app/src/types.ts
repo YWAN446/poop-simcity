@@ -32,7 +32,6 @@ export interface PoopEvents {
   lat: Float32Array;
   vtype: Uint8Array;
   infected: Uint8Array;
-  pathogen: Float32Array;
   count: number;
 }
 

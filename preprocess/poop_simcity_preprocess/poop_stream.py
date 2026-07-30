@@ -7,16 +7,13 @@ ambiguous because several venues share a (lat, lon, type) key.
 This stream is downsampled for render budget. Anything quantitative — pathogen
 inflow, the wastewater grid — must read the parquet directly instead.
 
-`poops_infected.u8` records `pathogen_level > 0` at source float64 precision,
-before `poops_pathogen.f32` narrows the magnitude to float32. The two are NOT
-redundant: this dataset's pathogen decay model produces positive values as
-small as ~1e-161, far below float32's smallest positive subnormal (~1.4e-45),
-so a genuinely infected event's magnitude can legitimately underflow to
-`0.0f` on the narrower type. That's fine for magnitude - a level of 1e-161 has
-nothing meaningful to display - but a renderer that decided infected-vs-clean
-by testing `poops_pathogen.f32 > 0` would silently misclassify it as clean.
-`poops_infected.u8` is the exact flag so that decision never depends on
-`poops_pathogen.f32`'s precision.
+There is no per-event pathogen magnitude array: this dataset's pathogen decay model
+produces positive values as small as ~1e-161, far below float32's smallest positive
+subnormal (~1.4e-45), so a float32 magnitude column would read `0.0` for a real
+fraction of genuinely infected events (322,424 of 1,619,274 in this run, 19.9%) - and
+nothing in the app renders a per-event magnitude anyway. `poops_infected.u8` is computed
+from `pathogen_level > 0` at source float64 precision instead, and is the sole
+authoritative infected/clean flag.
 """
 
 import os
@@ -68,10 +65,8 @@ def build_poop_stream(dataset_dir, profile, window, bbox,
 
     columns = ["agent_id", "time", "latitude", "longitude", "pathogen_level"]
     for df in iter_poop_batches(dataset_dir, profile, window, columns, batch_size):
-        # `infected` is computed here, from the source float64 column, before
-        # `pathogen` below narrows to float32 - see the module docstring for
-        # why the two must be tracked separately rather than one derived from
-        # the other downstream.
+        # Computed from the source float64 column - see the module docstring for
+        # why this is the sole authoritative infected/clean flag.
         infected = df["pathogen_level"].to_numpy() > 0
         if keep_mod is None:
             keep = infected
@@ -91,14 +86,12 @@ def build_poop_stream(dataset_dir, profile, window, bbox,
             "lon": quantize(df["longitude"], min_lon, max_lon),
             "lat": quantize(df["latitude"], min_lat, max_lat),
             "infected": infected.astype(np.uint8),
-            "pathogen": df["pathogen_level"].to_numpy(dtype=np.float32),
         })
 
     if not blocks:
         return {"poops_tick.u16": np.zeros(0, np.uint16),
                 "poops_lon.u16": np.zeros(0, np.uint16),
                 "poops_lat.u16": np.zeros(0, np.uint16),
-                "poops_pathogen.f32": np.zeros(0, np.float32),
                 "poops_infected.u8": np.zeros(0, np.uint8)}
 
     tick = np.concatenate([b["tick"] for b in blocks])
@@ -107,6 +100,5 @@ def build_poop_stream(dataset_dir, profile, window, bbox,
         "poops_tick.u16": to_u16(tick[order], "poop tick"),
         "poops_lon.u16": np.concatenate([b["lon"] for b in blocks])[order],
         "poops_lat.u16": np.concatenate([b["lat"] for b in blocks])[order],
-        "poops_pathogen.f32": np.concatenate([b["pathogen"] for b in blocks])[order],
         "poops_infected.u8": np.concatenate([b["infected"] for b in blocks])[order],
     }

@@ -1,7 +1,7 @@
 import type { AgentWaypoints, PoopEvents } from "../types";
 
 const AGENT_RECORD_BYTES = 13;
-const POOP_RECORD_BYTES = 18;
+const POOP_RECORD_BYTES = 14;
 
 export function decodeAgentWaypoints(buffer: ArrayBuffer): AgentWaypoints {
   const count = buffer.byteLength / AGENT_RECORD_BYTES;
@@ -28,7 +28,6 @@ export function decodePoopEvents(buffer: ArrayBuffer): PoopEvents {
   const lat = new Float32Array(count);
   const vtype = new Uint8Array(count);
   const infected = new Uint8Array(count);
-  const pathogen = new Float32Array(count);
   for (let i = 0; i < count; i++) {
     const o = i * POOP_RECORD_BYTES;
     tick[i] = dv.getUint32(o, true);
@@ -36,7 +35,6 @@ export function decodePoopEvents(buffer: ArrayBuffer): PoopEvents {
     lat[i] = dv.getFloat32(o + 8, true);
     vtype[i] = dv.getUint8(o + 12);
     infected[i] = dv.getUint8(o + 13);
-    pathogen[i] = dv.getFloat32(o + 14, true);
   }
-  return { tick, lon, lat, vtype, infected, pathogen, count };
+  return { tick, lon, lat, vtype, infected, count };
 }

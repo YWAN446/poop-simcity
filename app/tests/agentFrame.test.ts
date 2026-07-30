@@ -33,7 +33,7 @@ function makeBundle(): BundleV2 {
     stayIndex,
     agentIds: new Int32Array([0, 1, 2]),
     poops: { tick: new Uint16Array(), lonQ: new Uint16Array(), latQ: new Uint16Array(),
-             pathogen: new Float32Array(), infected: new Uint8Array(), count: 0 },
+             infected: new Uint8Array(), count: 0 },
     transitionsByAgent: new Map([[1, [[0, 2]]]]),   // agent 1 infectious from tick 0
     transmissions: { tick: new Uint16Array(), source: new Uint16Array(),
                      target: new Uint16Array(), count: 0 },

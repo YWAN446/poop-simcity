@@ -1,10 +1,9 @@
 # Poop SimCity 🚽🏙️
 
-**▶️ Live demos** — no install needed, just open them:
+**▶️ Live demo: https://poop-simcity.pages.dev** — no install needed, just open it.
 
-- **San Diego, 10,000 agents, dwell-time movement — https://poop-simcity-sdc-10k.pages.dev**
-  (this checkout builds that one)
-- Atlanta, 1,000 agents — https://poop-simcity.pages.dev (frozen v1 deployment)
+It opens on the San Diego run (10,000 agents, dwell-time movement); the **dataset
+switcher** in the top-left also plays back the original Atlanta run (1,000 agents).
 
 See [ROADMAP.md](ROADMAP.md) for what's built and what's planned.
 
@@ -162,23 +161,25 @@ The live demo is hosted free on **Cloudflare Pages** (static files only — no
 backend). To publish an update, from `app/`:
 
 ```bash
-npm run deploy   # builds, then uploads dist/ to the poop-simcity-sdc-10k Pages project
+npm run deploy   # builds, then uploads dist/ to the poop-simcity Pages project
 ```
 
 (First time on a new machine, or after the token expires: `npx wrangler login` once
 to authorize Cloudflare.)
 
-### The two demos are separate Pages projects
+### One site, both runs
 
-This checkout's app serves **`dataset_sdc-10k`** (San Diego, dwell-time movement) and
-nothing else — there is no runtime dataset switcher. So `npm run deploy` publishes to
-its own project, **`poop-simcity-sdc-10k`**, and leaves the original alone.
+There is a single Pages project, **`poop-simcity`**. `dist/` contains both bundles, so
+the deployed site serves both runs and the dataset switcher moves between them —
+no second project needed.
 
-The **Atlanta demo at https://poop-simcity.pages.dev is a frozen v1 deployment.** It
-keeps serving the last build made from a v1 checkout. Do not point this checkout's
-build at that project: it would replace Atlanta with San Diego, since `dist/` here
-only ever contains the `dataset_sdc-10k` app. To redeploy Atlanta, check out a
-revision from before the sdc-10k port and deploy from there.
+`npm run deploy` runs `build:sdc-10k`, so the site opens on San Diego. Deep-link the
+other run with
+[`?dataset=dataset_00`](https://poop-simcity.pages.dev/?dataset=dataset_00).
+
+Note the San Diego bundle is gitignored, so **deploy from a checkout where you have
+built it** — otherwise `dist/` ships only Atlanta and the switcher's San Diego option
+lands on the "generate this bundle" screen.
 
 ---
 

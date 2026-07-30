@@ -96,16 +96,17 @@ def test_negative_keep_fraction_raises(tmp_path):
         build_poop_stream(str(tmp_path), SDC_10K, WINDOW, BBOX, clean_keep_fraction=-0.5)
 
 
-def test_sort_permutes_lon_lat_and_pathogen_together_with_tick(tmp_path):
+def test_sort_permutes_lon_lat_pathogen_and_infected_together_with_tick(tmp_path):
     # Insertion order deliberately does not match tick order, and every event
     # carries a distinguishable coordinate and pathogen value. If the final
     # sort applied its permutation to the tick array but left one of the
-    # other three arrays unpermuted (or permuted with a different order),
+    # other four arrays unpermuted (or permuted with a different order),
     # this test would catch it by finding a tick paired with the wrong
-    # lon/lat/pathogen.
+    # lon/lat/pathogen/infected. One event is clean so `infected` isn't just
+    # all-ones (which would pass even if unpermuted).
     rows = [
         (10, "2024-01-01 03:00:00", 33.9, -116.2, "Apartment", 7.0, "Infectious", None),
-        (11, "2024-01-01 00:00:00", 32.1, -117.8, "Apartment", 1.0, "Infectious", None),
+        (11, "2024-01-01 00:00:00", 32.1, -117.8, "Apartment", 0.0, "Susceptible", None),
         (12, "2024-01-01 01:30:00", 33.0, -117.0, "Apartment", 4.0, "Infectious", None),
     ]
     _write_poops(tmp_path, rows)
@@ -117,7 +118,22 @@ def test_sort_permutes_lon_lat_and_pathogen_together_with_tick(tmp_path):
     lon = dequantize(a["poops_lon.u16"], BBOX[0], BBOX[2])
     lat = dequantize(a["poops_lat.u16"], BBOX[1], BBOX[3])
     pathogen = a["poops_pathogen.f32"]
+    infected = a["poops_infected.u8"]
 
     np.testing.assert_allclose(lon, [-117.8, -117.0, -116.2], atol=tol)
     np.testing.assert_allclose(lat, [32.1, 33.0, 33.9], atol=tol)
-    np.testing.assert_allclose(pathogen, [1.0, 4.0, 7.0], atol=1e-5)
+    np.testing.assert_allclose(pathogen, [0.0, 4.0, 7.0], atol=1e-5)
+    assert infected.tolist() == [0, 1, 1]
+
+
+def test_infected_flag_survives_float32_underflow_of_pathogen_magnitude(tmp_path):
+    # Regression guard for the bug this array exists to fix: a pathogen_level
+    # so small it underflows to exactly 0.0 when narrowed to float32 must
+    # still be flagged `infected == 1`, because the flag is derived from the
+    # source float64 value, not from the narrowed magnitude.
+    tiny = 1e-200
+    assert np.float32(tiny) == 0.0  # sanity: this value truly underflows
+    _write_poops(tmp_path, [_row(0, "2024-01-01 00:00:00", tiny)])
+    a = build_poop_stream(str(tmp_path), SDC_10K, WINDOW, BBOX, clean_keep_fraction=1.0)
+    assert a["poops_infected.u8"].tolist() == [1]
+    assert a["poops_pathogen.f32"].tolist() == [0.0]

@@ -22,6 +22,7 @@ ARTIFACTS_V2 = {
     "staysVenue": "stays_venue.u16", "staysIndex": "stays_index.json",
     "poopsTick": "poops_tick.u16", "poopsLon": "poops_lon.u16",
     "poopsLat": "poops_lat.u16", "poopsPathogen": "poops_pathogen.f32",
+    "poopsInfected": "poops_infected.u8",
     "disease": "disease.bin", "diseaseIndex": "disease_index.json",
     "transmissions": "transmissions.bin",
     "aggregates": "aggregates.json",

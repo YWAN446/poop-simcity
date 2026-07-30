@@ -2,15 +2,18 @@
 import { describe, it, expect } from "vitest";
 import {
   agentBinaryData, countVenuesByTypeV2, poopDataV2, venueOccupancyData,
+  wastewaterDataV2, wastewaterBinIndexV2, wastewaterGlobalMaxV2,
+  transmissionArcDataV2,
 } from "../src/render/layersV2";
-import { createAgentFrame, updateAgentFrame } from "../src/render/agentFrame";
+import { createAgentFrame, updateAgentFrame, type AgentFrame } from "../src/render/agentFrame";
+import { Presence } from "../src/sim/dwell";
 import type { BundleV2 } from "../src/types2";
 
 function makeBundle(): BundleV2 {
   return {
     base: "/x",
     manifest: {
-      numVenues: 2, bbox: [-118, 32, -116, 34],
+      numVenues: 2, bbox: [-118, 32, -116, 34], tickIntervalSec: 300,
       venueTypes: ["Apartment", "Workplace", "Restaurant", "Pub"],
     } as BundleV2["manifest"],
     venues: {
@@ -108,5 +111,132 @@ describe("poopDataV2", () => {
 describe("countVenuesByTypeV2", () => {
   it("counts from the venue table rather than deduping waypoints", () => {
     expect(countVenuesByTypeV2(makeBundle())).toEqual({ 0: 1, 1: 0, 2: 0, 3: 1 });
+  });
+});
+
+describe("wastewaterBinIndexV2", () => {
+  // tickIntervalSec: 300, cadenceSec: 3600 -> 12 ticks per hourly bin.
+  function bundleWithBins(numBins: number): BundleV2 {
+    return {
+      ...makeBundle(),
+      wastewater: { kind: "grid", cadenceSec: 3600, numBins, regions: [], values: new Float32Array() },
+    };
+  }
+
+  it("converts tick to hourly bin", () => {
+    const b = bundleWithBins(5);
+    expect(wastewaterBinIndexV2(b, 0)).toBe(0);
+    expect(wastewaterBinIndexV2(b, 11)).toBe(0);
+    expect(wastewaterBinIndexV2(b, 12)).toBe(1);
+    expect(wastewaterBinIndexV2(b, 35)).toBe(2);
+  });
+
+  it("clamps to 0 for negative or pre-window ticks", () => {
+    expect(wastewaterBinIndexV2(bundleWithBins(5), -100)).toBe(0);
+  });
+
+  it("clamps to numBins - 1 for ticks past the last bin", () => {
+    expect(wastewaterBinIndexV2(bundleWithBins(5), 1_000_000)).toBe(4);
+  });
+});
+
+describe("wastewaterDataV2", () => {
+  it("indexes the flat row-major [region][bin] matrix without transposing", () => {
+    // Non-square (2 regions x 3 bins) with asymmetric values, so a transposed
+    // lookup (bin * numRegions + region) would disagree with the correct one
+    // (region * numBins + bin) for at least one cell.
+    const b: BundleV2 = {
+      ...makeBundle(),
+      wastewater: {
+        kind: "grid", cadenceSec: 3600, numBins: 3,
+        regions: [
+          { id: "r0", centroid: [0, 0], polygon: [[0, 0], [0, 1], [1, 1], [1, 0]] },
+          { id: "r1", centroid: [1, 1], polygon: [[1, 1], [1, 2], [2, 2], [2, 1]] },
+        ],
+        values: new Float32Array([1, 2, 3, 10, 20, 30]), // region0=[1,2,3], region1=[10,20,30]
+      },
+    };
+    const rows = wastewaterDataV2(b, 24); // 24 / 12 = bin 2
+    expect(rows).toHaveLength(2);
+    expect(rows[0].value).toBe(3);  // region 0, bin 2 -> values[0*3+2]
+    expect(rows[1].value).toBe(30); // region 1, bin 2 -> values[1*3+2]
+    expect(rows[0].polygon).toEqual(b.wastewater.regions[0].polygon);
+  });
+});
+
+describe("wastewaterGlobalMaxV2", () => {
+  it("scans every region and every bin, not just the current one", () => {
+    const b: BundleV2 = {
+      ...makeBundle(),
+      wastewater: {
+        kind: "grid", cadenceSec: 3600, numBins: 3, regions: [],
+        values: new Float32Array([1, 2, 3, 10, 999, 30]), // peak buried mid-matrix
+      },
+    };
+    expect(wastewaterGlobalMaxV2(b)).toBe(999);
+  });
+
+  it("floors at 1 so an all-zero matrix doesn't divide by zero downstream", () => {
+    const b: BundleV2 = {
+      ...makeBundle(),
+      wastewater: { kind: "grid", cadenceSec: 3600, numBins: 2, regions: [], values: new Float32Array(4) },
+    };
+    expect(wastewaterGlobalMaxV2(b)).toBe(1);
+  });
+});
+
+describe("transmissionArcDataV2", () => {
+  // Non-contiguous, non-slot-order agent ids so an id/slot mix-up would fail.
+  function bundleWithTransmissions(
+    tick: Uint16Array, source: Uint16Array, target: Uint16Array,
+  ): BundleV2 {
+    return {
+      ...makeBundle(),
+      agentIds: new Int32Array([900, 17, 5]), // slot 0->900, slot 1->17, slot 2->5
+      transmissions: { tick, source, target, count: tick.length },
+    };
+  }
+
+  function makeFrame(): AgentFrame {
+    const positions = new Float32Array(6);
+    positions.set([-117, 32, -116.5, 32.5, -116, 33]); // slots 0,1,2
+    return {
+      positions,
+      codes: new Uint8Array(3),
+      presence: new Uint8Array([Presence.Dwelling, Presence.Dwelling, Presence.Dwelling]),
+      order: new Uint32Array(3),
+      visible: 3,
+      occupancy: new Uint16Array(0),
+    };
+  }
+
+  it("resolves agent id to slot via agentIds rather than treating id as slot", () => {
+    const b = bundleWithTransmissions(
+      new Uint16Array([10]), new Uint16Array([900]), new Uint16Array([5]),
+    );
+    const arcs = transmissionArcDataV2(b, makeFrame(), 10);
+    expect(arcs).toHaveLength(1);
+    expect(arcs[0].source).toEqual([-117, 32]);  // slot 0 = agent 900
+    expect(arcs[0].target).toEqual([-116, 33]);  // slot 2 = agent 5
+  });
+
+  it("skips an arc when either endpoint is not currently visible", () => {
+    const b = bundleWithTransmissions(
+      new Uint16Array([10]), new Uint16Array([900]), new Uint16Array([5]),
+    );
+    const frame = makeFrame();
+    frame.presence[2] = Presence.Absent; // agent 5 (target) not visible
+    expect(transmissionArcDataV2(b, frame, 10)).toHaveLength(0);
+  });
+
+  it("excludes transmissions outside the trailing tick window", () => {
+    const b = bundleWithTransmissions(
+      new Uint16Array([10, 500, 9999]),
+      new Uint16Array([900, 900, 900]),
+      new Uint16Array([5, 5, 5]),
+    );
+    const arcs = transmissionArcDataV2(b, makeFrame(), 500);
+    expect(arcs).toHaveLength(1); // tick 10 too far in the past, 9999 in the future
+    expect(arcs[0].age).toBeCloseTo(0, 5);
   });
 });

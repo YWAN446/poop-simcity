@@ -1,8 +1,9 @@
 // app/src/render/layersV2.ts
-import { IconLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { ArcLayer, IconLayer, PolygonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import type { AgentFrame } from "./agentFrame";
 import { Presence } from "../sim/dwell";
 import { STATE_COLORS, VENUE_COLORS, dayNightTint, scaleRgb } from "./theme";
+import { hourBinIndex } from "../sim/timeMapping";
 import type { BundleV2 } from "../types2";
 
 export interface AgentBinaryData {
@@ -182,4 +183,143 @@ export function countVenuesByTypeV2(bundle: BundleV2): Record<number, number> {
     counts[bundle.venues.type[i]]++;
   }
   return counts;
+}
+
+// ---------------------------------------------------------------------------
+// Wastewater grid
+//
+// v2's matrix is a single flat, row-major Float32Array (region-major: value for
+// region `r` at bin `b` lives at `values[r * numBins + b]`), unlike v1's
+// `Record<regionId, number[]>` series map. There's no per-region lookup by id
+// needed here since region order in `regions[]` matches row order in `values`.
+// ---------------------------------------------------------------------------
+
+export interface WwDatumV2 { polygon: [number, number][]; value: number; }
+
+/** Convert `tick` to a bin index into the wastewater matrix, clamped to range. */
+export function wastewaterBinIndexV2(bundle: BundleV2, tick: number): number {
+  const { cadenceSec, numBins } = bundle.wastewater;
+  const bin = hourBinIndex(tick, bundle.manifest.tickIntervalSec, cadenceSec);
+  return Math.min(numBins - 1, Math.max(0, bin));
+}
+
+/** Per-region pathogen value for the bin containing `tick`. */
+export function wastewaterDataV2(bundle: BundleV2, tick: number): WwDatumV2[] {
+  const { regions, values, numBins } = bundle.wastewater;
+  const bin = wastewaterBinIndexV2(bundle, tick);
+  const out: WwDatumV2[] = new Array(regions.length);
+  for (let r = 0; r < regions.length; r++) {
+    out[r] = { polygon: regions[r].polygon, value: values[r * numBins + bin] };
+  }
+  return out;
+}
+
+/**
+ * Largest per-cell pathogen value across all regions and all time bins (~632 x
+ * 5112 floats). Colors the wastewater layer on an absolute scale so a given
+ * color always means the same pathogen load across playback, same contract as
+ * v1's `wastewaterGlobalMax`. Callers must compute this once per bundle (e.g.
+ * via `useMemo` keyed on `bundle`) and reuse it — it is too expensive to run
+ * per frame.
+ */
+export function wastewaterGlobalMaxV2(bundle: BundleV2): number {
+  let max = 1;
+  const { values } = bundle.wastewater;
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] > max) max = values[i];
+  }
+  return max;
+}
+
+export function makeWastewaterLayerV2(data: WwDatumV2[], max: number) {
+  const logMax = Math.log10(max + 1);
+  return new PolygonLayer<WwDatumV2>({
+    id: "wastewater",
+    data,
+    getPolygon: (d) => d.polygon,
+    getFillColor: (d) => {
+      const t = Math.log10(d.value + 1) / logMax; // 0 (green) .. 1 (red), log-scaled
+      return [60 + t * 160, 200 - t * 120, 90, Math.round(20 + t * 140)] as [number, number, number, number];
+    },
+    stroked: false,
+    extruded: false,
+    updateTriggers: { getFillColor: [data, max] },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Transmission arcs
+//
+// v2's `transmissions` is a struct-of-arrays sorted ascending by tick (vs v1's
+// array of [tick, source, target] triples), so the time window is a binary
+// search rather than a linear scan. Endpoints are agent ids, but the live frame
+// is indexed by slot, so an id -> slot reverse index is required; it's cached
+// per bundle (keyed on the `agentIds` array identity) rather than rebuilt per
+// frame or per call.
+// ---------------------------------------------------------------------------
+
+export interface ArcDatumV2 { source: [number, number]; target: [number, number]; age: number; }
+
+const ARC_WINDOW_TICKS = 288; // ~1 day, matches v1
+
+const slotIndexCache = new WeakMap<Int32Array, Map<number, number>>();
+
+function agentSlotIndex(bundle: BundleV2): Map<number, number> {
+  let idx = slotIndexCache.get(bundle.agentIds);
+  if (!idx) {
+    idx = new Map();
+    for (let slot = 0; slot < bundle.agentIds.length; slot++) {
+      idx.set(bundle.agentIds[slot], slot);
+    }
+    slotIndexCache.set(bundle.agentIds, idx);
+  }
+  return idx;
+}
+
+/**
+ * Transient source->target arcs for transmissions within `ARC_WINDOW_TICKS` of
+ * `tick`. Positions come from the live agent frame (packed by slot); a
+ * transmission is skipped if either endpoint isn't currently visible (not yet
+ * arrived, or the agent has no active presence this tick).
+ */
+export function transmissionArcDataV2(
+  bundle: BundleV2, frame: AgentFrame, tick: number,
+): ArcDatumV2[] {
+  const { transmissions } = bundle;
+  const slotOf = agentSlotIndex(bundle);
+  const lowTick = tick - ARC_WINDOW_TICKS;
+
+  let lo = 0, hi = transmissions.count - 1, start = transmissions.count;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (transmissions.tick[mid] >= lowTick) { start = mid; hi = mid - 1; } else { lo = mid + 1; }
+  }
+
+  const out: ArcDatumV2[] = [];
+  for (let i = start; i < transmissions.count && transmissions.tick[i] <= tick; i++) {
+    const srcSlot = slotOf.get(transmissions.source[i]);
+    const tgtSlot = slotOf.get(transmissions.target[i]);
+    if (srcSlot === undefined || tgtSlot === undefined) continue;
+    if (frame.presence[srcSlot] === Presence.Absent) continue;
+    if (frame.presence[tgtSlot] === Presence.Absent) continue;
+    out.push({
+      source: [frame.positions[srcSlot * 2], frame.positions[srcSlot * 2 + 1]],
+      target: [frame.positions[tgtSlot * 2], frame.positions[tgtSlot * 2 + 1]],
+      age: (tick - transmissions.tick[i]) / ARC_WINDOW_TICKS,
+    });
+  }
+  return out;
+}
+
+export function makeArcLayerV2(data: ArcDatumV2[]) {
+  return new ArcLayer<ArcDatumV2>({
+    id: "arcs",
+    data,
+    getSourcePosition: (d) => d.source,
+    getTargetPosition: (d) => d.target,
+    getSourceColor: (d) => [229, 80, 57, Math.round(220 * (1 - d.age))] as [number, number, number, number],
+    getTargetColor: (d) => [237, 187, 79, Math.round(220 * (1 - d.age))] as [number, number, number, number],
+    getWidth: 2,
+    updateTriggers: { getSourceColor: data, getTargetColor: data },
+  });
 }

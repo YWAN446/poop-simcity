@@ -29,8 +29,12 @@ function Playback({ bundle }: { bundle: BundleV2 }) {
     range,
     bundle.manifest.outbreakWindow.startTick,
   );
+  // `arcs` is the Transmissions layer. On by default: it is cheap (a few dozen live
+  // arcs even at the outbreak peak) and it is the clearest thing on the map that the
+  // exact per-agent exposure times in this run made possible. Wastewater stays off —
+  // it covers the map in polygons and is better opted into.
   const [flags, setFlags] = useState<LayerFlags>({
-    agents: true, poops: true, venues: true, wastewater: false, arcs: false,
+    agents: true, poops: true, venues: true, wastewater: false, arcs: true,
   });
   const venueCounts = useMemo(() => countVenuesByTypeV2(bundle), [bundle]);
   const frame = useMemo(() => createAgentFrame(bundle), [bundle]);

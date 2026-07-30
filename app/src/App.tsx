@@ -1,59 +1,27 @@
-import { useMemo, useState } from "react";
-import { useBundle } from "./hooks/useBundle";
-import { usePlayback } from "./hooks/usePlayback";
-import { MapView } from "./ui/MapView";
-import { Timeline } from "./ui/Timeline";
-import { Hud } from "./ui/Hud";
-import { LayerToggles, type LayerFlags } from "./ui/LayerToggles";
-import { Legend } from "./ui/Legend";
-import { countVenuesByType } from "./render/layers";
-import type { Bundle } from "./data/loadBundle";
+import { useState } from "react";
+import { DATASETS, resolveInitialDataset } from "./data/datasets";
+import { DatasetSwitcher } from "./ui/DatasetSwitcher";
+import { PlaybackV1 } from "./ui/PlaybackV1";
+import { PlaybackV2 } from "./ui/PlaybackV2";
 
-const BUNDLE_BASE = "/data/dataset_00";
+// Build-time default (see app/.env and app/.env.sdc-10k): the deployed San
+// Diego site is built with `npm run build:sdc-10k` so it keeps opening on
+// dataset_sdc-10k, while a plain `npm run build`/`npm run dev` opens on
+// dataset_00, whose bundle is committed and always available.
+const ENV_DEFAULT = import.meta.env.VITE_DEFAULT_DATASET as string | undefined;
 
 export default function App() {
-  const state = useBundle(BUNDLE_BASE);
-  if (state.status === "loading") return <div className="app-shell">Loading…</div>;
-  if (state.status === "error")
-    return <div className="app-shell">Error: {state.message}</div>;
-  return <Playback bundle={state.bundle} />;
-}
+  const [datasetId, setDatasetId] = useState(
+    () => resolveInitialDataset(window.location.search, ENV_DEFAULT).id,
+  );
+  const dataset = DATASETS.find((d) => d.id === datasetId) ?? DATASETS[0];
 
-function Playback({ bundle }: { bundle: Bundle }) {
-  const range = useMemo(
-    () => ({ min: 0, max: bundle.manifest.numTicks - 1 }),
-    [bundle.manifest.numTicks],
-  );
-  const { tick, playing, setPlaying, seek, ticksPerSecond, setTicksPerSecond } = usePlayback(
-    range,
-    bundle.manifest.outbreakWindow.startTick,
-  );
-  const [flags, setFlags] = useState<LayerFlags>({
-    agents: true, poops: true, venues: true, wastewater: false, arcs: false,
-  });
-  const venueCounts = useMemo(() => countVenuesByType(bundle), [bundle]);
   return (
     <div className="app-shell">
-      <MapView bundle={bundle} tick={tick} flags={flags} />
-      <Legend venueCounts={venueCounts} />
-      <Hud
-        manifest={bundle.manifest}
-        agg={bundle.aggregates}
-        tick={tick}
-        ticksPerSecond={ticksPerSecond}
-        onSpeed={setTicksPerSecond}
-      />
-      <button
-        className="play-btn"
-        onClick={() => {
-          if (!playing && tick >= range.max) seek(bundle.manifest.outbreakWindow.startTick);
-          setPlaying(!playing);
-        }}
-      >
-        {playing ? "Pause" : "Play"}
-      </button>
-      <Timeline manifest={bundle.manifest} tick={tick} onSeek={seek} />
-      <LayerToggles flags={flags} onChange={setFlags} />
+      <DatasetSwitcher datasets={DATASETS} selected={dataset.id} onChange={setDatasetId} />
+      {dataset.schemaVersion === 2
+        ? <PlaybackV2 dataset={dataset} />
+        : <PlaybackV1 dataset={dataset} />}
     </div>
   );
 }

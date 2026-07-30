@@ -12,6 +12,7 @@ from .disease import build_disease
 from .manifest import build_manifest
 from .outbreak import detect_outbreak_window
 from .poops import build_poop_events
+from .profiles import DATASET_00, DatasetProfile
 from .wastewater import build_wastewater_grid
 
 
@@ -34,12 +35,13 @@ def _check_categories(series, allowed, label):
 
 
 def build_bundle(dataset_dir, out_dir, run_id="dataset_00",
-                 clean_keep_fraction=1.0, cell_size_deg=0.02):
+                 clean_keep_fraction=1.0, cell_size_deg=0.02,
+                 profile: DatasetProfile = DATASET_00):
     os.makedirs(out_dir, exist_ok=True)
 
-    check_in = _read(dataset_dir, "check_in")
-    disease_df = _read(dataset_dir, "disease_status")
-    poop_df = _read(dataset_dir, "poop_in")
+    check_in = _read(dataset_dir, profile.checkin_file)
+    disease_df = _read(dataset_dir, profile.disease_file)
+    poop_df = _read(dataset_dir, profile.poop_file)
 
     _check_categories(check_in["venue_type"], VENUE_TYPES, "check_in.venue_type")
     _check_categories(poop_df["venue_type"], VENUE_TYPES, "poop_in.venue_type")
@@ -64,7 +66,8 @@ def build_bundle(dataset_dir, out_dir, run_id="dataset_00",
     _write_json(out_dir, "agents_index.json", agents_index)
 
     # Disease
-    _write_json(out_dir, "disease.json", build_disease(disease_df, start_time))
+    _write_json(out_dir, "disease.json",
+                build_disease(disease_df, start_time, profile.source_agent_col))
 
     # Poops
     poops_bytes = build_poop_events(poop_df, start_time, clean_keep_fraction)

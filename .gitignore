@@ -1,5 +1,6 @@
 # Raw simulation data (large parquet / 736MB CSV) — provided, not versioned here
 /dataset_00/
+/dataset_sdc-10k/
 
 # Source preprint and scratch extraction
 *.pdf
@@ -10,6 +11,13 @@
 # The generated data bundle IS committed (so the app runs from a fresh clone
 # without needing Python or the raw simulation data). Regenerate it with the
 # preprocessor if needed — see the README.
+
+# Exception: the dataset_sdc-10k bundle (89.1 MB across 19 files) is NOT
+# committed. That's a lot of binary history to add irreversibly, so whether to commit it is left to the
+# repo owner rather than done automatically. Regenerate it locally with the
+# preprocessor command documented in the README; dataset_00's bundle above
+# remains committed as before.
+/app/public/data/dataset_sdc-10k/
 
 # Node / web app
 node_modules/

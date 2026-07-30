@@ -32,5 +32,4 @@ def build_poop_events(poop_df, start_time, clean_keep_fraction=1.0):
     arr["lat"] = df["latitude"].to_numpy()
     arr["vtype"] = df["vtype"].to_numpy()
     arr["infected"] = df["infected"].to_numpy()
-    arr["pathogen"] = df["pathogen_level"].to_numpy()
     return records_to_bytes(arr)

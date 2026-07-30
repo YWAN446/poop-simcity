@@ -15,7 +15,7 @@ import { tickToDate } from "../sim/timeMapping";
 import { dayNightTint } from "../render/theme";
 import { usePulse } from "../hooks/usePulse";
 
-export function MapView({ bundle, tick, flags }: { bundle: Bundle; tick: number; flags: LayerFlags }) {
+export function MapViewV1({ bundle, tick, flags }: { bundle: Bundle; tick: number; flags: LayerFlags }) {
   const [minLon, minLat, maxLon, maxLat] = bundle.manifest.bbox;
   const hour = tickToDate(bundle.manifest.startTime, bundle.manifest.tickIntervalSec, tick).getHours();
   // Venues don't change with time; build the layer once per bundle to avoid an

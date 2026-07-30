@@ -9,7 +9,7 @@ from poop_simcity_preprocess.encoding import (
 def test_dtype_itemsizes_are_stable():
     # Field layout is a wire contract with the browser; lock the sizes.
     assert AGENT_WAYPOINT_DTYPE.itemsize == 13
-    assert POOP_EVENT_DTYPE.itemsize == 18
+    assert POOP_EVENT_DTYPE.itemsize == 14
 
 
 def test_agent_record_roundtrip():
@@ -25,9 +25,9 @@ def test_agent_record_roundtrip():
 
 def test_poop_record_roundtrip():
     arr = np.zeros(1, dtype=POOP_EVENT_DTYPE)
-    arr[0] = (9, -84.5, 33.6, 1, 1, 1.0e7)
+    arr[0] = (9, -84.5, 33.6, 1, 1)
     raw = records_to_bytes(arr)
     back = np.frombuffer(raw, dtype=POOP_EVENT_DTYPE)
     assert back[0]["tick"] == 9
+    assert abs(back[0]["lon"] - (-84.5)) < 1e-4
     assert back[0]["infected"] == 1
-    assert abs(back[0]["pathogen"] - 1.0e7) / 1.0e7 < 1e-3

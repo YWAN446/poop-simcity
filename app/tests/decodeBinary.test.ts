@@ -15,18 +15,17 @@ function buildAgentBuffer(records: [number, number, number, number][]): ArrayBuf
 }
 
 function buildPoopBuffer(
-  records: [number, number, number, number, number, number][],
+  records: [number, number, number, number, number][],
 ): ArrayBuffer {
-  const buf = new ArrayBuffer(records.length * 18);
+  const buf = new ArrayBuffer(records.length * 14);
   const dv = new DataView(buf);
-  records.forEach(([tick, lon, lat, vtype, infected, pathogen], i) => {
-    const o = i * 18;
+  records.forEach(([tick, lon, lat, vtype, infected], i) => {
+    const o = i * 14;
     dv.setUint32(o, tick, true);
     dv.setFloat32(o + 4, lon, true);
     dv.setFloat32(o + 8, lat, true);
     dv.setUint8(o + 12, vtype);
     dv.setUint8(o + 13, infected);
-    dv.setFloat32(o + 14, pathogen, true);
   });
   return buf;
 }
@@ -47,13 +46,34 @@ describe("decodeAgentWaypoints", () => {
 });
 
 describe("decodePoopEvents", () => {
-  it("decodes 18-byte records including infected flag and pathogen", () => {
-    const buf = buildPoopBuffer([[5, -84.5, 33.6, 3, 1, 1e7]]);
+  it("decodes 14-byte records including the infected flag", () => {
+    const buf = buildPoopBuffer([[5, -84.5, 33.6, 3, 1]]);
     const p = decodePoopEvents(buf);
     expect(p.count).toBe(1);
     expect(p.tick[0]).toBe(5);
     expect(p.vtype[0]).toBe(3);
     expect(p.infected[0]).toBe(1);
-    expect(p.pathogen[0]).toBeCloseTo(1e7, -2);
+  });
+});
+
+describe("stale-bundle guards", () => {
+  // A bundle from before the pathogen field was dropped: 18-byte records. Without
+  // the guard this decodes silently — the fractional count is truncated when
+  // sizing the arrays and every read still lands inside the larger buffer, so you
+  // get byte-misaligned garbage rather than an error.
+  it("rejects a poops.bin whose length is not a whole number of records", () => {
+    const stale = new ArrayBuffer(3 * 18);
+    expect(() => decodePoopEvents(stale)).toThrow(/poops\.bin.*54 bytes.*14-byte/s);
+  });
+
+  it("rejects an agents.bin whose length is not a whole number of records", () => {
+    expect(() => decodeAgentWaypoints(new ArrayBuffer(13 * 2 + 5))).toThrow(
+      /agents\.bin.*13-byte/s,
+    );
+  });
+
+  it("still accepts an empty buffer", () => {
+    expect(decodePoopEvents(new ArrayBuffer(0)).count).toBe(0);
+    expect(decodeAgentWaypoints(new ArrayBuffer(0)).count).toBe(0);
   });
 });

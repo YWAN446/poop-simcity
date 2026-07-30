@@ -1,6 +1,10 @@
 # Poop SimCity 🚽🏙️
 
-**▶️ Live demo: https://poop-simcity.pages.dev** — no install needed, just open it.
+**▶️ Live demos** — no install needed, just open them:
+
+- **San Diego, 10,000 agents, dwell-time movement — https://poop-simcity-sdc-10k.pages.dev**
+  (this checkout builds that one)
+- Atlanta, 1,000 agents — https://poop-simcity.pages.dev (frozen v1 deployment)
 
 See [ROADMAP.md](ROADMAP.md) for what's built and what's planned.
 
@@ -25,8 +29,8 @@ a scrubbable timeline with a day/night cycle.
 ## Quick start (run it on your laptop)
 
 **Prerequisites:** [Node.js](https://nodejs.org/) 18 or newer (`node --version`).
-That's all you need — the precomputed data bundle is included in the repo, so you
-don't need Python or the raw simulation data just to run the app.
+That's all you need — the Atlanta data bundle is included in the repo, so you don't
+need Python or the raw simulation data just to run the app.
 
 ```bash
 git clone <this-repo-url>
@@ -37,9 +41,26 @@ npm run dev
 
 Then open **http://localhost:5173** in your browser.
 
-First load fetches a ~31 MB data bundle, so give it a second. Press **Play**, drag
+First load fetches a ~30 MB data bundle, so give it a second. Press **Play**, drag
 the timeline to the highlighted **outbreak window**, and zoom into a cluster to
 watch the little characters turn amber and red.
+
+### Switching datasets
+
+The **dataset switcher** (top-left) chooses which simulation run to play back:
+
+| | agents | bundle |
+|---|---|---|
+| **Atlanta** (`dataset_00`) | 1,000 | committed — works straight from a clone |
+| **San Diego** (`dataset_sdc-10k`) | 10,000, with dwell-time movement | **not committed** (~89 MB) — build it first |
+
+Selecting San Diego before its bundle exists shows the exact command to generate it
+— the same one under **Developing → The `dataset_sdc-10k` bundle** below. The
+switcher stays usable on that screen, so you can go straight back to Atlanta.
+
+You can also deep-link a run with `?dataset=dataset_sdc-10k`, and a build can pin its
+own default — `npm run build:sdc-10k` opens on San Diego, which is how that demo is
+deployed, while a plain `npm run build` opens on Atlanta.
 
 ### Controls
 - **Play / Pause** (top-left) and the **Speed** slider (HUD) control playback.
@@ -102,6 +123,38 @@ python verify_bundle.py   # sanity-checks the generated bundle
 The raw simulation data and the original simulation framework are available from
 the paper's project: <https://github.com/onspatial/wastewater-based-epidemiology-patterns-of-life>.
 
+### The `dataset_sdc-10k` bundle (schemaVersion 2, 10,000 agents)
+
+A second, larger simulation run — 10,000 agents, 12,134 venues, San Diego County —
+is supported via `schemaVersion 2` of the bundle format. Unlike `dataset_00`, this
+bundle is **not committed** to the repo (it's 89.1 MB across 19 files; see
+`.gitignore`), so it must be generated locally. With the raw `dataset_sdc-10k/` parquet folder
+(`Checkin.parquet`, `DiseasesStatus.parquet`, `Poopin.parquet`) present at the repo
+root, from `preprocess/`:
+
+```bash
+python -m poop_simcity_preprocess.cli \
+  --dataset ../dataset_sdc-10k \
+  --out ../app/public/data/dataset_sdc-10k \
+  --run-id dataset_sdc-10k \
+  --profile dataset_sdc-10k \
+  --window-start 2024-01-01T00:00:00 \
+  --window-end 2024-07-31T23:55:00 \
+  --clean-keep-fraction 0.3
+python verify_bundle_v2.py --bundle ../app/public/data/dataset_sdc-10k \
+  --dataset ../dataset_sdc-10k --profile dataset_sdc-10k
+```
+
+The `--window-start`/`--window-end` bounds cover January 1 through July 31, 2024 —
+about 99.3% of all disease exposures in the source data — rather than the full
+simulated year. Two things force a window at all: (1) ticks are encoded as
+`uint16`, capping any run at 65,536 five-minute ticks (~227 days), well short of
+a full year; and (2) even without that ceiling, restricting to the
+highest-exposure stretch keeps the bundle a manageable size. `--clean-keep-fraction`
+only thins *non-pathogen-bearing* poop events for render budget — every
+pathogen-bearing poop event is always kept, and nothing quantitative (SEIR,
+wastewater totals) is ever computed from the thinned stream.
+
 ---
 
 ### Deploying / updating the live site
@@ -109,10 +162,23 @@ The live demo is hosted free on **Cloudflare Pages** (static files only — no
 backend). To publish an update, from `app/`:
 
 ```bash
-npm run deploy   # builds, then uploads dist/ to the poop-simcity Pages project
+npm run deploy   # builds, then uploads dist/ to the poop-simcity-sdc-10k Pages project
 ```
 
-(First time on a new machine: `npx wrangler login` once to authorize Cloudflare.)
+(First time on a new machine, or after the token expires: `npx wrangler login` once
+to authorize Cloudflare.)
+
+### The two demos are separate Pages projects
+
+This checkout's app serves **`dataset_sdc-10k`** (San Diego, dwell-time movement) and
+nothing else — there is no runtime dataset switcher. So `npm run deploy` publishes to
+its own project, **`poop-simcity-sdc-10k`**, and leaves the original alone.
+
+The **Atlanta demo at https://poop-simcity.pages.dev is a frozen v1 deployment.** It
+keeps serving the last build made from a v1 checkout. Do not point this checkout's
+build at that project: it would replace Atlanta with San Diego, since `dist/` here
+only ever contains the `dataset_sdc-10k` app. To redeploy Atlanta, check out a
+revision from before the sdc-10k port and deploy from there.
 
 ---
 

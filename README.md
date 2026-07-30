@@ -102,6 +102,38 @@ python verify_bundle.py   # sanity-checks the generated bundle
 The raw simulation data and the original simulation framework are available from
 the paper's project: <https://github.com/onspatial/wastewater-based-epidemiology-patterns-of-life>.
 
+### The `dataset_sdc-10k` bundle (schemaVersion 2, 10,000 agents)
+
+A second, larger simulation run — 10,000 agents, 12,134 venues, San Diego County —
+is supported via `schemaVersion 2` of the bundle format. Unlike `dataset_00`, this
+bundle is **not committed** to the repo (it's ~98 MB; see `.gitignore`), so it must
+be generated locally. With the raw `dataset_sdc-10k/` parquet folder
+(`Checkin.parquet`, `DiseasesStatus.parquet`, `Poopin.parquet`) present at the repo
+root, from `preprocess/`:
+
+```bash
+python -m poop_simcity_preprocess.cli \
+  --dataset ../dataset_sdc-10k \
+  --out ../app/public/data/dataset_sdc-10k \
+  --run-id dataset_sdc-10k \
+  --profile dataset_sdc-10k \
+  --window-start 2024-01-01T00:00:00 \
+  --window-end 2024-07-31T23:55:00 \
+  --clean-keep-fraction 0.3
+python verify_bundle_v2.py --bundle ../app/public/data/dataset_sdc-10k \
+  --dataset ../dataset_sdc-10k --profile dataset_sdc-10k
+```
+
+The `--window-start`/`--window-end` bounds cover January 1 through July 31, 2024 —
+about 99.3% of all disease exposures in the source data — rather than the full
+simulated year. Two things force a window at all: (1) ticks are encoded as
+`uint16`, capping any run at 65,536 five-minute ticks (~227 days), well short of
+a full year; and (2) even without that ceiling, restricting to the
+highest-exposure stretch keeps the bundle a manageable size. `--clean-keep-fraction`
+only thins *non-pathogen-bearing* poop events for render budget — every
+pathogen-bearing poop event is always kept, and nothing quantitative (SEIR,
+wastewater totals) is ever computed from the thinned stream.
+
 ---
 
 ### Deploying / updating the live site

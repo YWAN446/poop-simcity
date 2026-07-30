@@ -12,6 +12,13 @@
 # without needing Python or the raw simulation data). Regenerate it with the
 # preprocessor if needed — see the README.
 
+# Exception: the dataset_sdc-10k bundle (~98 MB) is NOT committed. That's a lot
+# of binary history to add irreversibly, so whether to commit it is left to the
+# repo owner rather than done automatically. Regenerate it locally with the
+# preprocessor command documented in the README; dataset_00's bundle above
+# remains committed as before.
+/app/public/data/dataset_sdc-10k/
+
 # Node / web app
 node_modules/
 app/node_modules/

@@ -1,8 +1,8 @@
-import type { Manifest } from "../types";
+import type { ManifestV2 } from "../types2";
 
 export function Timeline({
   manifest, tick, onSeek,
-}: { manifest: Manifest; tick: number; onSeek: (t: number) => void }) {
+}: { manifest: ManifestV2; tick: number; onSeek: (t: number) => void }) {
   const max = manifest.numTicks - 1;
   const ow = manifest.outbreakWindow;
   const pct = (t: number) => `${(t / max) * 100}%`;

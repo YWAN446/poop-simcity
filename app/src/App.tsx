@@ -1,25 +1,26 @@
 import { useMemo, useState } from "react";
-import { useBundle } from "./hooks/useBundle";
+import { useBundleV2 } from "./hooks/useBundleV2";
 import { usePlayback } from "./hooks/usePlayback";
 import { MapView } from "./ui/MapView";
 import { Timeline } from "./ui/Timeline";
 import { Hud } from "./ui/Hud";
 import { LayerToggles, type LayerFlags } from "./ui/LayerToggles";
 import { Legend } from "./ui/Legend";
-import { countVenuesByType } from "./render/layers";
-import type { Bundle } from "./data/loadBundle";
+import { countVenuesByTypeV2 } from "./render/layersV2";
+import { createAgentFrame } from "./render/agentFrame";
+import type { BundleV2 } from "./types2";
 
-const BUNDLE_BASE = "/data/dataset_00";
+const BUNDLE_BASE = "/data/dataset_sdc-10k";
 
 export default function App() {
-  const state = useBundle(BUNDLE_BASE);
+  const state = useBundleV2(BUNDLE_BASE);
   if (state.status === "loading") return <div className="app-shell">Loading…</div>;
   if (state.status === "error")
     return <div className="app-shell">Error: {state.message}</div>;
   return <Playback bundle={state.bundle} />;
 }
 
-function Playback({ bundle }: { bundle: Bundle }) {
+function Playback({ bundle }: { bundle: BundleV2 }) {
   const range = useMemo(
     () => ({ min: 0, max: bundle.manifest.numTicks - 1 }),
     [bundle.manifest.numTicks],
@@ -31,10 +32,11 @@ function Playback({ bundle }: { bundle: Bundle }) {
   const [flags, setFlags] = useState<LayerFlags>({
     agents: true, poops: true, venues: true, wastewater: false, arcs: false,
   });
-  const venueCounts = useMemo(() => countVenuesByType(bundle), [bundle]);
+  const venueCounts = useMemo(() => countVenuesByTypeV2(bundle), [bundle]);
+  const frame = useMemo(() => createAgentFrame(bundle), [bundle]);
   return (
     <div className="app-shell">
-      <MapView bundle={bundle} tick={tick} flags={flags} />
+      <MapView bundle={bundle} frame={frame} tick={tick} flags={flags} />
       <Legend venueCounts={venueCounts} />
       <Hud
         manifest={bundle.manifest}

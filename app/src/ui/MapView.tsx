@@ -1,51 +1,35 @@
-import { useMemo } from "react";
 import { Map, NavigationControl } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Layer } from "@deck.gl/core";
-import type { Bundle } from "../data/loadBundle";
+import type { BundleV2 } from "../types2";
+import { type AgentFrame, updateAgentFrame } from "../render/agentFrame";
 import { GAME_MAP_STYLE } from "../render/mapStyle";
 import { DeckOverlay } from "../render/DeckOverlay";
+import { makePoopLayer } from "../render/layers";
 import {
-  agentData, makeAgentIconLayer, makeInfectionGlowLayer, venueData, makeVenueLayer,
-  poopData, makePoopLayer, wastewaterData, makeWastewaterLayer, wastewaterGlobalMax,
-  arcData, makeArcLayer,
-} from "../render/layers";
+  agentBinaryData, makeAgentLayerV2, makeTravelTrailLayer,
+  venueOccupancyData, makeVenueOccupancyLayer, poopDataV2,
+} from "../render/layersV2";
 import type { LayerFlags } from "./LayerToggles";
 import { tickToDate } from "../sim/timeMapping";
 import { dayNightTint } from "../render/theme";
-import { usePulse } from "../hooks/usePulse";
 
-export function MapView({ bundle, tick, flags }: { bundle: Bundle; tick: number; flags: LayerFlags }) {
+export function MapView({
+  bundle, frame, tick, flags,
+}: { bundle: BundleV2; frame: AgentFrame; tick: number; flags: LayerFlags }) {
   const [minLon, minLat, maxLon, maxLat] = bundle.manifest.bbox;
-  const hour = tickToDate(bundle.manifest.startTime, bundle.manifest.tickIntervalSec, tick).getHours();
-  // Venues don't change with time; build the layer once per bundle to avoid an
-  // O(waypoints) dedup scan on every animation frame.
-  // Memoize the expensive DATA (venue dedup), but build fresh Layer instances each
-  // render. deck.gl layers are single-use descriptors — reusing one instance breaks
-  // re-adding a layer after it's been toggled off.
-  const venuePoints = useMemo(() => venueData(bundle), [bundle]);
-  const wwMax = useMemo(() => wastewaterGlobalMax(bundle), [bundle]);
-  const baseLayers = useMemo(() => {
-    const ls: Layer[] = [];
-    if (flags.wastewater) ls.push(makeWastewaterLayer(wastewaterData(bundle, tick), wwMax));
-    if (flags.venues) ls.push(makeVenueLayer(venuePoints));
-    if (flags.poops) ls.push(makePoopLayer(poopData(bundle, tick)));
-    if (flags.arcs) ls.push(makeArcLayer(arcData(bundle, tick)));
-    return ls;
-  }, [bundle, tick, flags, venuePoints, wwMax]);
+  const hour = tickToDate(bundle.manifest.windowStart, bundle.manifest.tickIntervalSec, tick).getHours();
 
-  // Agent positions/colors change only with tick/hour; the glow pulses every frame.
-  const agents = useMemo(() => agentData(bundle, tick, hour), [bundle, tick, hour]);
-  const glowData = useMemo(
-    () => agents.filter((a) => a.code === 1 || a.code === 2),
-    [agents],
-  );
-  const pulse = usePulse();
+  // The frame is mutated in place here and read by every layer below, so this must
+  // run before any layer is constructed.
+  updateAgentFrame(frame, bundle, tick);
 
-  const layers: Layer[] = [...baseLayers];
+  const layers: Layer[] = [];
+  if (flags.venues) layers.push(makeVenueOccupancyLayer(venueOccupancyData(bundle, frame), tick));
+  if (flags.poops) layers.push(makePoopLayer(poopDataV2(bundle, tick)));
   if (flags.agents) {
-    if (glowData.length > 0) layers.push(makeInfectionGlowLayer(glowData, pulse));
-    layers.push(makeAgentIconLayer(agents));
+    layers.push(makeTravelTrailLayer(frame, tick));
+    layers.push(makeAgentLayerV2(agentBinaryData(frame, hour), tick));
   }
 
   const nightAlpha = Math.max(0, (1 - dayNightTint(hour)) * 0.6);

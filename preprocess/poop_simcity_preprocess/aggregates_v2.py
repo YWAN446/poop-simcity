@@ -34,7 +34,11 @@ def seir_hourly(transitions, num_agents, window, cadence_sec=3600):
     opening tick; v2 samples at bin close instead so SEIR describes the same
     closed hourly interval that `pathogenInflow` sums over. Agents with no
     transitions, and agents before their first transition, are Susceptible.
-    Every bin's four counts sum to `num_agents`.
+    Every bin's four counts sum to `num_agents`. Raises `ValueError` if
+    `num_agents < len(transitions)`, since that would make the "everyone else
+    is Susceptible" bulk-add (`num_agents - len(transitions)`) negative - the
+    caller passed a population smaller than the set of agents it also claims
+    have transitions.
 
     Vectorized per agent: at real scale there are ~5,490 agents and ~5,112
     hourly bins, so a naive "for agent: for bin: bisect" loop is ~28M scalar
@@ -42,6 +46,14 @@ def seir_hourly(transitions, num_agents, window, cadence_sec=3600):
     for one agent in a single call, turning the inner loop into one vectorized
     lookup per agent (~5,490 calls total).
     """
+    if num_agents < len(transitions):
+        raise ValueError(
+            f"num_agents ({num_agents}) is smaller than the number of agents "
+            f"with transitions ({len(transitions)}); this would produce "
+            f"negative Susceptible counts. The caller must ensure `transitions` "
+            f"is a subset of the population counted by `num_agents`."
+        )
+
     grid_ticks, bin_ticks = _grid(window, cadence_sec)
     num_bins = len(grid_ticks)
     # Last valid tick index covered by each bin, capped at the window's last

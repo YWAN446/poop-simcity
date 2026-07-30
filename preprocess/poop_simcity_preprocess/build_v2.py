@@ -75,6 +75,28 @@ def build_bundle_v2(dataset_dir, out_dir, *, run_id, window_start, window_end,
         _write_bytes(out_dir, name, arr.tobytes())
 
     scan = scan_disease(dataset_dir, profile, window, batch_size=batch_size)
+
+    # `stay_index` (from Checkin) and `scan.transitions`/`scan.samples` (from
+    # DiseasesStatus) are each masked against the window independently, on
+    # different tables' own `time` columns. Nothing upstream guarantees they
+    # agree on which agents are "in the window": an agent whose check-in
+    # predates the window vanishes from `stay_index` (see stays.py) even if
+    # its disease timeline has in-window rows. Left unchecked, that agent
+    # would count toward `len(transitions)` but have no stay - and, further
+    # downstream, `seir_hourly`'s `num_agents - len(transitions)` bulk-add
+    # would go negative, silently writing negative Susceptible counts into
+    # aggregates.json. Catch it here, at the source, with a clear message.
+    stay_agent_ids = {entry["agentId"] for entry in stay_index}
+    disease_agent_ids = set(scan.transitions) | set(scan.samples)
+    orphaned = sorted(disease_agent_ids - stay_agent_ids)
+    if orphaned:
+        raise ValueError(
+            f"{len(orphaned)} agent(s) have disease records inside the window "
+            f"but no check-in stay inside it - the disease and check-in "
+            f"tables disagree about which agents are in the window; sample "
+            f"agent id(s): {orphaned[:5]}"
+        )
+
     disease_bin, transmissions_bin, disease_index = encode_disease(scan)
     _write_bytes(out_dir, "disease.bin", disease_bin)
     _write_bytes(out_dir, "transmissions.bin", transmissions_bin)

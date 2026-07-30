@@ -3,6 +3,7 @@ import bisect
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pytest
 
 from poop_simcity_preprocess.aggregates_v2 import (
     build_aggregates_v2, pathogen_inflow_hourly, seir_hourly,
@@ -27,6 +28,13 @@ def test_agents_before_their_first_transition_count_as_susceptible():
     seir = seir_hourly({0: [(30, 1)]}, num_agents=1, window=WINDOW)
     assert seir["S"] == [1, 1, 0]
     assert seir["E"] == [0, 0, 1]
+
+
+def test_num_agents_smaller_than_transitions_raises_instead_of_going_negative():
+    # 2 agents have transitions but the caller claims only 1 agent exists -
+    # the "everyone else is Susceptible" bulk-add would go negative.
+    with pytest.raises(ValueError, match="num_agents"):
+        seir_hourly({1: [(10, 1)], 2: [(20, 2)]}, num_agents=1, window=WINDOW)
 
 
 def _write_poops(dataset_dir, rows):

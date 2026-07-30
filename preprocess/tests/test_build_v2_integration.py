@@ -113,6 +113,11 @@ def test_build_v2_writes_a_self_consistent_bundle(tmp_path):
     assert len(agg["pathogenInflow"]) == 48
     assert all(len(agg["seir"][k]) == 48 for k in "SEIR")
 
+    # Every bin's SEIR counts sum to numAgents - the invariant that a
+    # stays/disease agent-id mismatch would silently break (negative S).
+    for i in range(48):
+        assert sum(agg["seir"][k][i] for k in "SEIR") == manifest["numAgents"]
+
 
 def test_downsampling_does_not_change_aggregates_or_wastewater(tmp_path):
     dataset_dir = tmp_path / "src"
@@ -141,3 +146,52 @@ def test_window_too_wide_for_uint16_raises(tmp_path):
         build_bundle_v2(str(dataset_dir), str(tmp_path / "out"), run_id="r",
                         window_start="2024-01-01 00:00:00",
                         window_end="2024-12-31 23:55:00", profile=SDC_10K)
+
+
+def test_agent_with_in_window_disease_but_no_in_window_stay_raises(tmp_path):
+    # Agent 7's only check-in predates the window (so it has no in-window
+    # stay), but its DiseasesStatus row falls inside the window and carries
+    # an exposed_started_time - stays.py and disease_v2.py mask against the
+    # window independently on different tables, so nothing else catches this
+    # disagreement. Without the guard, seir_hourly's `num_agents -
+    # len(transitions)` would go negative for this agent's population.
+    dataset_dir = tmp_path / "src"
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    checkin = pd.DataFrame({
+        "agent_id": [7],
+        "time": pd.to_datetime(["2023-12-31 00:00:00"]),   # before the window
+        "CheckoutTime": ["2023-12-31T23:00:00"],
+        "venue_id": [10],
+        "venue_type": ["Apartment"],
+        "latitude": [32.70],
+        "longitude": [-117.20],
+    })
+    disease = pd.DataFrame({
+        "time": pd.to_datetime(["2024-01-01 00:00:00"]),   # inside the window
+        "agent_id": [7],
+        "exposed_started_time": pd.to_datetime(["2024-01-01 00:00:00"]),
+        "infectious_started_time": pd.to_datetime([None]),
+        "pathogen_level": [5.0],
+        "disease_status": ["Exposed"],
+        "SourceAgentId": [-1],
+        "latitude": [32.70],
+        "longitude": [-117.20],
+    })
+    poops = pd.DataFrame({
+        "agent_id": [7],
+        "time": pd.to_datetime(["2024-01-01 01:00:00"]),
+        "latitude": [32.70],
+        "longitude": [-117.20],
+        "venue_type": ["Apartment"],
+        "pathogen_level": [0.0],
+        "disease_status": ["Susceptible"],
+        "infectious_started_time": pd.to_datetime([None]),
+    })
+    for name, df in [("Checkin", checkin), ("DiseasesStatus", disease),
+                     ("Poopin", poops)]:
+        pq.write_table(pa.Table.from_pandas(df), dataset_dir / f"{name}.parquet")
+
+    with pytest.raises(ValueError, match=r"\b7\b"):
+        build_bundle_v2(str(dataset_dir), str(tmp_path / "out"), run_id="r",
+                        window_start=WINDOW_START, window_end=WINDOW_END,
+                        profile=SDC_10K)

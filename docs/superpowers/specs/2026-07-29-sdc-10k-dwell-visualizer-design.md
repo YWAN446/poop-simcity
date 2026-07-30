@@ -248,6 +248,13 @@ full-resolution aggregates.
 Hourly, 5,112 bins: SEIR counts over all 10,000 agents plus total pathogen inflow. Derived
 from transitions and the complete poop set.
 
+`gridTicks[i]` is bin `i`'s **opening** tick, while `seir[state][i]` is the population state
+at that bin's **closing** tick, so a transition partway through an hour is already reflected
+in that hour's counts. This makes SEIR describe the same closed interval that
+`pathogenInflow` sums over, and it differs deliberately from the v1 bundle, which samples
+state at the opening tick. The bundle records the convention as `"seirSampledAt": "binEnd"`
+so a consumer never has to infer it from the numbers.
+
 ### Wastewater — `wastewater.bin` + `wastewater_regions.json`
 
 Unchanged regions × time-series interface. 633 populated 0.02° cells × 5,112 hourly bins as

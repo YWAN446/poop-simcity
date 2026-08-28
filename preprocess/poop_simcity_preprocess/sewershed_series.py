@@ -13,9 +13,9 @@ per-shed rows sum back to the global series — the invariant the tests lean on.
 
 import numpy as np
 
-from .aggregates_v2 import hourly_bin_grid
+from .aggregates_v2 import hourly_bin_grid, seir_hourly
 from .poop_stream import iter_poop_batches
-from .sewersheds import assign_points
+from .sewersheds import assign_points, OUTSIDE
 from .window import ticks_of
 
 
@@ -44,3 +44,32 @@ def sewershed_pathogen_hourly(dataset_dir, profile, window, sheds,
             df["pathogen_level"].to_numpy(dtype="float64"),
         )
     return totals
+
+
+STATE_ORDER = ["S", "E", "I", "R"]
+
+
+def sewershed_seir_hourly(transitions, home_shed, agent_ids, n_sheds, window,
+                          cadence_sec=3600):
+    """Resident SEIR per sewershed per hourly bin; shape (n_sheds + 1, 4, num_bins).
+
+    Delegates to `seir_hourly` once per sewershed, passing only that shed's
+    residents and its resident count. Reusing it keeps one implementation of the
+    bin-close sampling convention rather than a second copy that could drift.
+
+    Because `home_shed` partitions the population — every agent has exactly one
+    home, Outside included — the rows sum to the global SEIR by construction.
+    """
+    home_shed = np.asarray(home_shed)
+    outside_row = n_sheds
+    rows = []
+    for row in range(n_sheds + 1):
+        member = home_shed == (OUTSIDE if row == outside_row else row)
+        residents = {
+            agent_ids[i]: transitions[agent_ids[i]]
+            for i in np.flatnonzero(member)
+            if agent_ids[i] in transitions
+        }
+        counts = seir_hourly(residents, int(member.sum()), window, cadence_sec)
+        rows.append([counts[s] for s in STATE_ORDER])
+    return np.array(rows, dtype="int64")

@@ -5,10 +5,10 @@ import pyarrow.parquet as pq
 import pytest
 import shapefile
 
-from poop_simcity_preprocess.aggregates_v2 import pathogen_inflow_hourly
+from poop_simcity_preprocess.aggregates_v2 import pathogen_inflow_hourly, seir_hourly
 from poop_simcity_preprocess.profiles import SDC_10K
 from poop_simcity_preprocess.sewersheds import load_sewersheds
-from poop_simcity_preprocess.sewershed_series import sewershed_pathogen_hourly
+from poop_simcity_preprocess.sewershed_series import sewershed_pathogen_hourly, sewershed_seir_hourly
 from poop_simcity_preprocess.window import make_window
 
 WINDOW = make_window("2024-01-01 00:00:00", "2024-01-01 02:55:00")  # 36 ticks, 3 bins
@@ -92,3 +92,47 @@ def test_batch_boundaries_do_not_change_the_result(tmp_path):
     big = sewershed_pathogen_hourly(str(tmp_path), SDC_10K, WINDOW, sheds, batch_size=1000)
     small = sewershed_pathogen_hourly(str(tmp_path), SDC_10K, WINDOW, sheds, batch_size=3)
     np.testing.assert_allclose(big, small)
+
+
+STATES = ["S", "E", "I", "R"]
+
+
+def test_residents_are_counted_in_their_own_shed_only():
+    # Agent 10 lives in shed 0 and is Exposed from tick 6; agent 20 lives in
+    # shed 1 and never transitions.
+    transitions = {10: [(6, 1)]}
+    home = np.array([0, 1], dtype=np.int8)
+    m = sewershed_seir_hourly(transitions, home, [10, 20], n_sheds=3, window=WINDOW)
+    assert m.shape == (4, 4, 3)
+    assert m[0][STATES.index("E")].tolist() == [1, 1, 1]   # shed 0: the exposed agent
+    assert m[0][STATES.index("S")].tolist() == [0, 0, 0]
+    assert m[1][STATES.index("S")].tolist() == [1, 1, 1]   # shed 1: the susceptible one
+    assert m[2].sum() == 0                                  # shed 2 has no residents
+    assert m[3].sum() == 0                                  # nobody lives Outside
+
+
+def test_outside_residents_land_in_the_last_row():
+    transitions = {}
+    home = np.array([-1, -1], dtype=np.int8)
+    m = sewershed_seir_hourly(transitions, home, [1, 2], n_sheds=3, window=WINDOW)
+    assert m[3][STATES.index("S")].tolist() == [2, 2, 2]
+    assert m[0].sum() == 0
+
+
+def test_rows_sum_to_the_global_seir_series():
+    """Same invariant as the wastewater series: homes partition the population,
+    so summing the per-shed rows must reproduce the global SEIR exactly."""
+    transitions = {1: [(6, 1)], 2: [(6, 1), (18, 2)], 3: [(30, 3)]}
+    home = np.array([0, 1, 2, -1, 0], dtype=np.int8)
+    agent_ids = [1, 2, 3, 4, 5]
+    m = sewershed_seir_hourly(transitions, home, agent_ids, n_sheds=3, window=WINDOW)
+    global_seir = seir_hourly(transitions, len(agent_ids), WINDOW)
+    for s, name in enumerate(STATES):
+        assert m[:, s, :].sum(axis=0).tolist() == global_seir[name]
+
+
+def test_every_bin_sums_to_the_population():
+    transitions = {1: [(6, 2)]}
+    home = np.array([0, 1, -1], dtype=np.int8)
+    m = sewershed_seir_hourly(transitions, home, [1, 2, 3], n_sheds=3, window=WINDOW)
+    assert m.sum(axis=(0, 1)).tolist() == [3, 3, 3]

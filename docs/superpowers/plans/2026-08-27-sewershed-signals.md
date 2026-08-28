@@ -1667,6 +1667,7 @@ git commit -m "feat: draw sewershed boundaries and select one by clicking"
 ## Notes for the implementer
 
 - **The sum invariant is the point.** If per-shed rows stop summing to the global series, something is being dropped or double-counted — do not relax the tolerance to make it pass.
+- **Known limit of the pathogen invariant (ruled during execution):** it cannot detect a reintroduced `pathogen_level > 0` filter, because a zero-valued event contributes zero to a weighted sum either way. The constraint is output-neutral; the invariant still catches dropped or misbinned *nonzero* events. The SEIR invariant in Task 4 has no such limit — dropping an agent changes an integer count.
 - **Never simplify before assigning.** `simplified_rings` exists for the browser only.
 - **Wastewater is assigned by event location, residence by home.** They are different questions; sharing a rule would silently answer the wrong one.
 - Atlanta (`dataset_00`) has no sewersheds. Every new UI element must be conditional on `bundle.sewersheds` existing.

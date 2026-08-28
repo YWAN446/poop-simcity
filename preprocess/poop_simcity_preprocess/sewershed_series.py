@@ -15,7 +15,7 @@ import numpy as np
 
 from .aggregates_v2 import hourly_bin_grid, seir_hourly
 from .poop_stream import iter_poop_batches
-from .sewersheds import assign_points, OUTSIDE
+from .sewersheds import assign_points, OUTSIDE, OUTSIDE_U8, simplified_rings
 from .window import ticks_of
 
 
@@ -73,3 +73,49 @@ def sewershed_seir_hourly(transitions, home_shed, agent_ids, n_sheds, window,
         counts = seir_hourly(residents, int(member.sum()), window, cadence_sec)
         rows.append([counts[s] for s in STATE_ORDER])
     return np.array(rows, dtype="int64")
+
+
+SEWERSHED_ARTIFACTS = {
+    "sewersheds": "sewersheds.json",
+    "sewershedWw": "sewershed_ww.bin",
+    "sewershedSeir": "sewershed_seir.bin",
+    "agentHomeShed": "agent_home_shed.u8",
+}
+
+
+def encode_sewersheds(sheds, ww, seir, home_shed, venue_shed):
+    """Serialize the sewershed artifacts.
+
+    Returns (sewersheds_json, {filename: bytes}). `sewersheds.json` describes only
+    the real sewersheds; Outside is the remainder and appears only as the final
+    row of each matrix.
+    """
+    home_shed = np.asarray(home_shed)
+    venue_shed = np.asarray(venue_shed)
+    meta = {
+        "kind": "zcta-union",
+        "sewersheds": [
+            {
+                "id": shed.id,
+                "label": shed.label,
+                "residents": int((home_shed == i).sum()),
+                "venues": int((venue_shed == i).sum()),
+                "polygons": simplified_rings(shed),
+            }
+            for i, shed in enumerate(sheds)
+        ],
+        "outside": {
+            "label": "Outside sewersheds",
+            "residents": int((home_shed == OUTSIDE).sum()),
+            "venues": int((venue_shed == OUTSIDE).sum()),
+        },
+    }
+    seir_u16 = seir.astype("<u2")
+    if not np.array_equal(seir_u16.astype("int64"), seir):
+        raise ValueError("sewershed SEIR counts do not fit in uint16")
+    home_u8 = np.where(home_shed == OUTSIDE, OUTSIDE_U8, home_shed).astype("<u1")
+    return meta, {
+        "sewershed_ww.bin": np.ascontiguousarray(ww, dtype="<f4").tobytes(),
+        "sewershed_seir.bin": np.ascontiguousarray(seir_u16).tobytes(),
+        "agent_home_shed.u8": home_u8.tobytes(),
+    }

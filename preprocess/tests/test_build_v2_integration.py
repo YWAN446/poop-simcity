@@ -5,6 +5,7 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+import shapefile
 
 from poop_simcity_preprocess.build_v2 import build_bundle_v2
 from poop_simcity_preprocess.profiles import SDC_10K
@@ -195,3 +196,71 @@ def test_agent_with_in_window_disease_but_no_in_window_stay_raises(tmp_path):
         build_bundle_v2(str(dataset_dir), str(tmp_path / "out"), run_id="r",
                         window_start=WINDOW_START, window_end=WINDOW_END,
                         profile=SDC_10K)
+
+
+def _write_sewersheds(shed_dir, boxes):
+    shed_dir.mkdir(parents=True, exist_ok=True)
+    for name, (x0, y0, x1, y1) in boxes.items():
+        w = shapefile.Writer(str(shed_dir / f"{name}_sewershed"), shapeType=shapefile.POLYGON)
+        w.field("ZCTA5CE20", "C")
+        w.poly([[[x0, y0], [x0, y1], [x1, y1], [x1, y0], [x0, y0]]])
+        w.record("00000")
+        w.close()
+
+
+def test_sewershed_artifacts_sum_to_the_global_series(tmp_path):
+    dataset_dir = tmp_path / "src"
+    out_dir = tmp_path / "bundle"
+    _write_synthetic(dataset_dir)
+    # The synthetic fixture's venues sit near (32.70,-117.20) and (32.75,-117.10);
+    # this box contains the first and excludes the second.
+    _write_sewersheds(tmp_path / "sheds", {
+        "encina": (-117.25, 32.65, -117.15, 32.72),
+        "point_loma": (-100.0, 10.0, -99.0, 11.0),
+        "south_bay": (-90.0, 10.0, -89.0, 11.0),
+    })
+
+    manifest = build_bundle_v2(
+        str(dataset_dir), str(out_dir), run_id="test-run",
+        window_start=WINDOW_START, window_end=WINDOW_END, profile=SDC_10K,
+        clean_keep_fraction=1.0, shapefile_dir=str(tmp_path / "sheds"),
+    )
+
+    assert manifest["sewershedKind"] == "zcta-union"
+    for key in ("sewersheds", "sewershedWw", "sewershedSeir", "agentHomeShed"):
+        assert key in manifest["artifacts"]
+        assert (out_dir / manifest["artifacts"][key]).exists()
+
+    sheds = json.loads((out_dir / "sewersheds.json").read_text())
+    assert [s["id"] for s in sheds["sewersheds"]] == ["encina", "point_loma", "south_bay"]
+    n_rows = len(sheds["sewersheds"]) + 1
+
+    agg = json.loads((out_dir / "aggregates.json").read_text())
+    num_bins = len(agg["gridTicks"])
+
+    ww = np.frombuffer((out_dir / "sewershed_ww.bin").read_bytes(),
+                       dtype="<f4").reshape(n_rows, num_bins)
+    np.testing.assert_allclose(ww.sum(axis=0), agg["pathogenInflow"], rtol=1e-5)
+
+    seir = np.frombuffer((out_dir / "sewershed_seir.bin").read_bytes(),
+                         dtype="<u2").reshape(n_rows, 4, num_bins)
+    for s, name in enumerate("SEIR"):
+        assert seir[:, s, :].sum(axis=0).tolist() == agg["seir"][name]
+
+    home = np.frombuffer((out_dir / "agent_home_shed.u8").read_bytes(), dtype="<u1")
+    assert len(home) == manifest["numAgents"]
+    assert set(np.unique(home)).issubset({0, 1, 2, 255})
+
+
+def test_bundle_without_shapefiles_has_no_sewershed_artifacts(tmp_path):
+    dataset_dir = tmp_path / "src"
+    out_dir = tmp_path / "bundle"
+    _write_synthetic(dataset_dir)
+    manifest = build_bundle_v2(
+        str(dataset_dir), str(out_dir), run_id="r",
+        window_start=WINDOW_START, window_end=WINDOW_END, profile=SDC_10K,
+    )
+    assert "sewershedKind" not in manifest
+    for key in ("sewersheds", "sewershedWw", "sewershedSeir", "agentHomeShed"):
+        assert key not in manifest["artifacts"]
+    assert not (out_dir / "sewersheds.json").exists()

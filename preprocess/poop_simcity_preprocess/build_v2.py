@@ -10,6 +10,11 @@ from .constants import TICK_INTERVAL_SEC, VENUE_TYPES
 from .disease_v2 import encode_disease, scan_disease
 from .outbreak import detect_outbreak_window
 from .poop_stream import build_poop_stream
+from .sewersheds import assign_points, home_shed_by_agent, load_sewersheds
+from .sewershed_series import (
+    SEWERSHED_ARTIFACTS, encode_sewersheds, sewershed_pathogen_hourly,
+    sewershed_seir_hourly,
+)
 from .stays import build_stays
 from .venues import build_venue_table, venue_arrays, venue_index_map
 from .wastewater_v2 import build_wastewater_v2
@@ -43,7 +48,7 @@ def _write_bytes(out_dir, name, payload):
 
 def build_bundle_v2(dataset_dir, out_dir, *, run_id, window_start, window_end,
                     profile, clean_keep_fraction=0.3, cell_size_deg=0.02,
-                    batch_size=2_000_000):
+                    batch_size=2_000_000, shapefile_dir=None):
     os.makedirs(out_dir, exist_ok=True)
     window = make_window(window_start, window_end)
     # Fail fast on a window too wide to encode as uint16 ticks, instead of
@@ -114,6 +119,34 @@ def build_bundle_v2(dataset_dir, out_dir, *, run_id, window_start, window_end,
     _write_bytes(out_dir, "wastewater.bin", matrix.tobytes())
     _write_json(out_dir, "wastewater_regions.json", regions)
 
+    if shapefile_dir:
+        sheds = load_sewersheds(shapefile_dir)
+        venue_shed = assign_points(
+            sheds,
+            venues["longitude"].to_numpy(),
+            venues["latitude"].to_numpy(),
+        )
+        # Reuse the array `venue_arrays` already built and validated, rather than
+        # re-mapping venue_type here - that function raises on an unmapped type.
+        home_shed = home_shed_by_agent(
+            stay_arrays, stay_index,
+            venue_arrays(venues)["venues_type.u8"],
+            venue_shed,
+        )
+        ww = sewershed_pathogen_hourly(dataset_dir, profile, window, sheds,
+                                       batch_size=batch_size)
+        seir = sewershed_seir_hourly(
+            scan.transitions, home_shed, [e["agentId"] for e in stay_index],
+            len(sheds), window,
+        )
+        meta, blobs = encode_sewersheds(sheds, ww, seir, home_shed, venue_shed)
+        _write_json(out_dir, "sewersheds.json", meta)
+        for name, payload in blobs.items():
+            _write_bytes(out_dir, name, payload)
+        artifacts = {**ARTIFACTS_V2, **SEWERSHED_ARTIFACTS}
+    else:
+        artifacts = dict(ARTIFACTS_V2)
+
     outbreak = detect_outbreak_window(aggregates["seir"], aggregates["gridTicks"])
     exposed_agents = len(scan.transmissions)
     manifest = {
@@ -133,7 +166,9 @@ def build_bundle_v2(dataset_dir, out_dir, *, run_id, window_start, window_end,
             "recoveryTimeResolution": "daily",
             "cleanPoopKeepFraction": float(clean_keep_fraction),
         },
-        "artifacts": dict(ARTIFACTS_V2),
+        "artifacts": artifacts,
     }
+    if shapefile_dir:
+        manifest["sewershedKind"] = "zcta-union"
     _write_json(out_dir, "manifest.json", manifest)
     return manifest

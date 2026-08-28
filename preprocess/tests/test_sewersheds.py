@@ -5,7 +5,7 @@ import shapefile
 from shapely.geometry import Polygon
 
 from poop_simcity_preprocess.sewersheds import (
-    OUTSIDE, SHED_IDS, assign_points, load_sewersheds, simplified_rings,
+    OUTSIDE, SHED_IDS, assign_points, home_shed_by_agent, load_sewersheds, simplified_rings,
 )
 
 
@@ -110,3 +110,70 @@ def test_missing_shapefile_raises_naming_the_file(tmp_path):
     _write_shapefile(d / "encina_sewershed", [[_square(0, 0, 1, 1)]])
     with pytest.raises(FileNotFoundError, match="point_loma"):
         load_sewersheds(str(d))
+
+
+# Task 2: Agent residence by most-dwelled Apartment
+
+APARTMENT = 0
+WORKPLACE = 1
+
+
+def _stays(venue, dwell):
+    return {
+        "stays_venue.u16": np.array(venue, dtype=np.uint16),
+        "stays_dwell.u16": np.array(dwell, dtype=np.uint16),
+    }
+
+
+def test_home_is_the_apartment_with_the_most_dwell_not_the_most_visits():
+    # Agent 0 visits venue 1 three times (30 ticks total) but sleeps at venue 0
+    # once for 100 ticks. Home is venue 0.
+    venue_types = np.array([APARTMENT, APARTMENT], dtype=np.uint8)
+    venue_shed = np.array([0, 1], dtype=np.int8)
+    arrays = _stays([0, 1, 1, 1], [100, 10, 10, 10])
+    index = [{"agentId": 0, "offset": 0, "count": 4}]
+    assert home_shed_by_agent(arrays, index, venue_types, venue_shed).tolist() == [0]
+
+
+def test_non_apartment_stays_never_count():
+    # The workplace has far more dwell, but only Apartments can be a home.
+    venue_types = np.array([APARTMENT, WORKPLACE], dtype=np.uint8)
+    venue_shed = np.array([0, 1], dtype=np.int8)
+    arrays = _stays([0, 1], [5, 5000])
+    index = [{"agentId": 0, "offset": 0, "count": 2}]
+    assert home_shed_by_agent(arrays, index, venue_types, venue_shed).tolist() == [0]
+
+
+def test_ties_break_toward_the_lower_venue_index():
+    venue_types = np.array([APARTMENT, APARTMENT], dtype=np.uint8)
+    venue_shed = np.array([0, 1], dtype=np.int8)
+    arrays = _stays([1, 0], [50, 50])
+    index = [{"agentId": 0, "offset": 0, "count": 2}]
+    assert home_shed_by_agent(arrays, index, venue_types, venue_shed).tolist() == [0]
+
+
+def test_home_in_no_sewershed_is_outside():
+    venue_types = np.array([APARTMENT], dtype=np.uint8)
+    venue_shed = np.array([OUTSIDE], dtype=np.int8)
+    arrays = _stays([0], [10])
+    index = [{"agentId": 0, "offset": 0, "count": 1}]
+    assert home_shed_by_agent(arrays, index, venue_types, venue_shed).tolist() == [OUTSIDE]
+
+
+def test_agent_with_no_apartment_stay_is_outside():
+    venue_types = np.array([WORKPLACE], dtype=np.uint8)
+    venue_shed = np.array([0], dtype=np.int8)
+    arrays = _stays([0], [10])
+    index = [{"agentId": 0, "offset": 0, "count": 1}]
+    assert home_shed_by_agent(arrays, index, venue_types, venue_shed).tolist() == [OUTSIDE]
+
+
+def test_each_agent_uses_only_its_own_slice():
+    venue_types = np.array([APARTMENT, APARTMENT], dtype=np.uint8)
+    venue_shed = np.array([0, 1], dtype=np.int8)
+    arrays = _stays([0, 1], [10, 10])
+    index = [
+        {"agentId": 7, "offset": 0, "count": 1},
+        {"agentId": 9, "offset": 1, "count": 1},
+    ]
+    assert home_shed_by_agent(arrays, index, venue_types, venue_shed).tolist() == [0, 1]

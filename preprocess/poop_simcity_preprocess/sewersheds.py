@@ -103,3 +103,31 @@ def simplified_rings(shed) -> list:
             rings.append([[float(x), float(y)] for x, y in interior.coords])
         out.append(rings)
     return out
+
+
+def home_shed_by_agent(stay_arrays, stay_index, venue_types, venue_shed) -> np.ndarray:
+    """Each agent's sewershed of residence, in `stay_index` order.
+
+    Residence is the Apartment where the agent accumulates the most dwell time
+    across the window — not its first check-in, which a single visit to someone
+    else's home would decide, and not where it happens to be at a given hour.
+    This is the rule the CheckoutTime durations make possible.
+
+    Ties break toward the lower venue index (argmax over a bincount), which is
+    deterministic. An agent with no Apartment stay at all is OUTSIDE; that case
+    does not arise in the production run, where all 10,000 agents have one.
+    """
+    venue = stay_arrays["stays_venue.u16"].astype("int64")
+    dwell = stay_arrays["stays_dwell.u16"].astype("int64")
+    is_apartment = venue_types[venue] == 0   # VENUE_TYPE_TO_ID["Apartment"]
+
+    out = np.full(len(stay_index), OUTSIDE, dtype=np.int8)
+    for i, entry in enumerate(stay_index):
+        lo = entry["offset"]
+        hi = lo + entry["count"]
+        mask = is_apartment[lo:hi]
+        if not mask.any():
+            continue
+        totals = np.bincount(venue[lo:hi][mask], weights=dwell[lo:hi][mask])
+        out[i] = venue_shed[int(totals.argmax())]
+    return out

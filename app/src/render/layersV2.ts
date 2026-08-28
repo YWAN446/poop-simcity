@@ -4,7 +4,7 @@ import type { AgentFrame } from "./agentFrame";
 import { Presence } from "../sim/dwell";
 import { STATE_COLORS, VENUE_COLORS, dayNightTint } from "./theme";
 import { hourBinIndex } from "../sim/timeMapping";
-import type { BundleV2 } from "../types2";
+import type { BundleV2, Sewersheds } from "../types2";
 
 export interface AgentBinaryData {
   length: number;
@@ -399,5 +399,64 @@ export function makeArcLayerV2(data: ArcDatumV2[]) {
     getTargetColor: (d) => [237, 187, 79, Math.round(220 * (1 - d.age))] as [number, number, number, number],
     getWidth: 2,
     updateTriggers: { getSourceColor: data, getTargetColor: data },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Sewershed boundaries
+// ---------------------------------------------------------------------------
+
+export interface SewershedPolygonDatum {
+  id: string;
+  label: string;
+  /** rings -> [lon, lat]; ring 0 is the exterior, any others are holes. */
+  rings: number[][][];
+}
+
+/**
+ * One datum per polygon rather than per sewershed, because deck.gl's PolygonLayer
+ * takes a single polygon (with optional holes) per row. A sewershed made of
+ * several disjoint pieces contributes several rows sharing its id.
+ */
+export function sewershedPolygonData(
+  sewersheds: Sewersheds | undefined,
+): SewershedPolygonDatum[] {
+  if (!sewersheds) return [];
+  const out: SewershedPolygonDatum[] = [];
+  for (const shed of sewersheds.sheds) {
+    for (const rings of shed.polygons) {
+      out.push({ id: shed.id, label: shed.label, rings });
+    }
+  }
+  return out;
+}
+
+export function makeSewershedLayer(
+  data: SewershedPolygonDatum[],
+  selectedId: string,
+  onSelect: (id: string) => void,
+) {
+  return new PolygonLayer<SewershedPolygonDatum>({
+    id: "sewersheds",
+    data,
+    getPolygon: (d) => d.rings,
+    // Selected shed reads as filled; the others are outline-first so they never
+    // compete with the agents underneath.
+    getFillColor: (d) =>
+      d.id === selectedId ? [120, 170, 235, 60] : [120, 170, 235, 18],
+    getLineColor: (d) =>
+      d.id === selectedId ? [150, 200, 255, 235] : [140, 180, 230, 120],
+    getLineWidth: (d) => (d.id === selectedId ? 3 : 1.5),
+    lineWidthUnits: "pixels",
+    stroked: true,
+    filled: true,
+    pickable: true,
+    onClick: (info) => {
+      const d = info.object as SewershedPolygonDatum | undefined;
+      if (d) onSelect(d.id);
+    },
+    updateTriggers: {
+      getFillColor: selectedId, getLineColor: selectedId, getLineWidth: selectedId,
+    },
   });
 }

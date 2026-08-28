@@ -20,6 +20,7 @@ html, body, #root { margin: 0; height: 100%; }
    line is a single unwrapped string and the whole HUD stretches to fit it. */
 .hud-coverage { max-width: 400px; font: 600 11px system-ui; color: #aaa;
   line-height: 1.45; text-wrap: pretty; }
+.hud-scope { font: 600 11px system-ui; opacity: 0.75; }
 .chart-block { display: flex; flex-direction: column; }
 .chart-readout { margin-top: 3px; }
 .readout-date { font: 600 12px ui-monospace, monospace; color: #d8d8df; }
@@ -78,3 +79,15 @@ html, body, #root { margin: 0; height: 100%; }
   background: rgba(255,255,255,0.08); border-radius: 10px; padding: 14px 16px;
   font: 13px ui-monospace, monospace; white-space: pre; color: #f0f0f0; }
 .dataset-error-detail { opacity: 0.6; font-size: 12px; }
+/* In-flow inside the HUD panel (see Hud's `scopeSelector` prop) — shown only
+   when the bundle ships sewersheds (see SewershedSelector), so dataset_00
+   never renders this. No panel chrome of its own: it lives inside the HUD's
+   panel, so a second nested background/blur would look wrong. */
+.shed-selector { max-width: 400px; display: flex; flex-direction: column; gap: 6px; }
+.shed-selector-label { font: 700 10px system-ui; letter-spacing: 0.05em;
+  text-transform: uppercase; opacity: 0.6; }
+.shed-selector-note { text-transform: none; letter-spacing: 0; }
+.shed-selector-options { display: flex; flex-wrap: wrap; gap: 4px; }
+.shed-chip { border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.08);
+  color: #eee; border-radius: 999px; padding: 3px 9px; font: 600 11px system-ui; cursor: pointer; }
+.shed-chip-on { background: #e0e0e8; color: #16161c; border-color: #e0e0e8; }

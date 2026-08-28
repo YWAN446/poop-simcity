@@ -32,6 +32,9 @@ def build_parser():
                         help="Wastewater grid cell size in degrees")
     parser.add_argument("--batch-size", type=int, default=2_000_000,
                         help="Parquet rows per streaming batch (schemaVersion 2 only)")
+    parser.add_argument("--shapefile-dir", default=None,
+                        help="Directory of <shed>_sewershed.shp files "
+                             "(schemaVersion 2 only); omitted = no sewershed artifacts")
     return parser
 
 
@@ -63,7 +66,8 @@ def main(argv=None):
             args.dataset, args.out, run_id=run_id,
             window_start=args.window_start, window_end=args.window_end,
             profile=profile, clean_keep_fraction=clean_keep_fraction,
-            cell_size_deg=args.cell_size_deg, batch_size=args.batch_size)
+            cell_size_deg=args.cell_size_deg, batch_size=args.batch_size,
+            shapefile_dir=args.shapefile_dir)
 
     print(f"Wrote schemaVersion {manifest['schemaVersion']} bundle to {args.out}: "
           f"{manifest['numAgents']} agents, {manifest['numTicks']} ticks, "

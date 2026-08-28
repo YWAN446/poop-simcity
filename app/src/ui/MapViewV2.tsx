@@ -13,15 +13,23 @@ import {
   wastewaterDataV2, makeWastewaterLayerV2, wastewaterGlobalMaxV2,
   transmissionArcDataV2, makeArcLayerV2,
   infectionGlowData, makeInfectionGlowLayerV2,
+  sewershedPolygonData, makeSewershedLayer,
 } from "../render/layersV2";
 import type { LayerFlags } from "./LayerToggles";
 import { usePulse } from "../hooks/usePulse";
 import { tickToDate } from "../sim/timeMapping";
 import { dayNightTint } from "../render/theme";
+import type { ScopeId } from "../sim/sewershedScope";
 
 export function MapViewV2({
-  bundle, frame, tick, flags,
-}: { bundle: BundleV2; frame: AgentFrame; tick: number; flags: LayerFlags }) {
+  bundle, frame, tick, flags, scope, onSelectScope,
+}: {
+  bundle: BundleV2; frame: AgentFrame; tick: number; flags: LayerFlags;
+  /** Currently selected sewershed scope; drives the boundary layer's highlight. */
+  scope: ScopeId;
+  /** Selects a sewershed when its boundary is clicked, re-scoping the HUD charts. */
+  onSelectScope: (id: string) => void;
+}) {
   const [minLon, minLat, maxLon, maxLat] = bundle.manifest.bbox;
   const hour = tickToDate(bundle.manifest.windowStart, bundle.manifest.tickIntervalSec, tick).getHours();
   // Scans ~3.2M floats; compute once per bundle and reuse across every frame so
@@ -36,6 +44,13 @@ export function MapViewV2({
   updateAgentFrame(frame, bundle, tick);
 
   const layers: Layer[] = [];
+  // Drawn first (and thus underneath everything, including the agents) so the
+  // boundaries read as ground beneath the simulation rather than an overlay on it.
+  if (flags.sewersheds && bundle.sewersheds) {
+    layers.push(makeSewershedLayer(
+      sewershedPolygonData(bundle.sewersheds), scope, onSelectScope,
+    ));
+  }
   if (flags.wastewater) layers.push(makeWastewaterLayerV2(wastewaterDataV2(bundle, tick), wwMax));
   if (flags.venues) layers.push(makeVenueOccupancyLayer(venueOccupancyData(bundle, frame), tick));
   if (flags.poops) layers.push(makePoopLayer(poopDataV2(bundle, tick)));

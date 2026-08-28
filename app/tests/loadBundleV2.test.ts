@@ -174,3 +174,67 @@ describe("loadBundleV2", () => {
     });
   });
 });
+
+describe("sewersheds", () => {
+  const SHED_FILES: Record<string, unknown> = {
+    "sewersheds.json": {
+      kind: "zcta-union",
+      sewersheds: [
+        { id: "encina", label: "Encina", residents: 2, venues: 3,
+          polygons: [[[[0, 0], [0, 1], [1, 1], [0, 0]]]] },
+      ],
+      outside: { label: "Outside sewersheds", residents: 1, venues: 1 },
+    },
+    // 2 rows (1 shed + Outside) x 1 bin
+    "sewershed_ww.bin": bin(new Float32Array([5, 7])),
+    // 2 rows x 4 states x 1 bin
+    "sewershed_seir.bin": bin(new Uint16Array([2, 0, 0, 0, 1, 0, 0, 0])),
+    "agent_home_shed.u8": bin(new Uint8Array([0, 0, 255])),
+  };
+  const SHED_ARTIFACTS = {
+    sewersheds: "sewersheds.json", sewershedWw: "sewershed_ww.bin",
+    sewershedSeir: "sewershed_seir.bin", agentHomeShed: "agent_home_shed.u8",
+  };
+
+  it("decodes the sewershed artifacts when present", async () => {
+    const manifest = {
+      ...MANIFEST,
+      artifacts: { ...ARTIFACTS, ...SHED_ARTIFACTS },
+    };
+    const b = await loadBundleV2("/data/t", fakeFetch({ "manifest.json": manifest, ...SHED_FILES }));
+    expect(b.sewersheds).toBeDefined();
+    expect(b.sewersheds!.sheds.map((s) => s.id)).toEqual(["encina"]);
+    expect(b.sewersheds!.rows).toBe(2);        // one shed plus Outside
+    expect(b.sewersheds!.numBins).toBe(1);
+    expect(Array.from(b.sewersheds!.ww)).toEqual([5, 7]);
+    expect(b.sewersheds!.outside.residents).toBe(1);
+  });
+
+  it("is undefined when the bundle declares no sewershed artifacts", async () => {
+    const b = await loadBundleV2("/data/t", fakeFetch());
+    expect(b.sewersheds).toBeUndefined();
+  });
+
+  it("rejects a sewershed matrix whose length disagrees with the row count", async () => {
+    const manifest = { ...MANIFEST, artifacts: { ...ARTIFACTS, ...SHED_ARTIFACTS } };
+    const fetchFn = fakeFetch({
+      "manifest.json": manifest, ...SHED_FILES,
+      "sewershed_ww.bin": bin(new Float32Array([1, 2, 3])),   // not a multiple of rows
+    });
+    await expect(loadBundleV2("/data/t", fetchFn)).rejects.toThrow(/sewershed_ww/);
+  });
+
+  it("rejects a sewershed numBins that disagrees with aggregates.gridTicks.length", async () => {
+    // 2 rows x 2 bins, but MANIFEST's aggregates.json has a single-bin gridTicks — a
+    // stale sewershed_ww.bin regenerated against a different window than aggregates.json.
+    const manifest = { ...MANIFEST, artifacts: { ...ARTIFACTS, ...SHED_ARTIFACTS } };
+    const fetchFn = fakeFetch({
+      "manifest.json": manifest, ...SHED_FILES,
+      "sewershed_ww.bin": bin(new Float32Array([5, 6, 7, 8])),
+      "sewershed_seir.bin": bin(new Uint16Array([
+        2, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0,
+      ])),
+    });
+    await expect(loadBundleV2("/data/t", fetchFn)).rejects.toThrow(/numBins/);
+  });
+});

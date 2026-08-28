@@ -1,0 +1,121 @@
+"""Per-sewershed hourly series.
+
+Two different questions, two different assignment rules:
+
+- Wastewater is assigned by the event's OWN coordinates. That is what a plant
+  measures: pathogen follows the pipe from wherever it was deposited, whoever
+  deposited it.
+- Resident cases are assigned by the agent's home (see `sewersheds.home_shed_by_agent`).
+
+Both are accumulated on the same hourly bin grid as `aggregates.json`, so the
+per-shed rows sum back to the global series — the invariant the tests lean on.
+"""
+
+import numpy as np
+
+from .aggregates_v2 import hourly_bin_grid, seir_hourly
+from .poop_stream import iter_poop_batches
+from .sewersheds import assign_points, OUTSIDE, OUTSIDE_U8, simplified_rings
+from .window import ticks_of
+
+
+def sewershed_pathogen_hourly(dataset_dir, profile, window, sheds,
+                              cadence_sec=3600, batch_size=2_000_000):
+    """Pathogen per sewershed per hourly bin; shape (len(sheds) + 1, num_bins).
+
+    The final row is Outside. Accumulates in float64; callers narrow to float32
+    only when writing the artifact.
+    """
+    grid_ticks, bin_ticks = hourly_bin_grid(window, cadence_sec)
+    num_bins = len(grid_ticks)
+    n_rows = len(sheds) + 1
+    outside_row = len(sheds)
+    totals = np.zeros((n_rows, num_bins), dtype="float64")
+
+    columns = ["time", "latitude", "longitude", "pathogen_level"]
+    for df in iter_poop_batches(dataset_dir, profile, window, columns, batch_size):
+        shed = assign_points(sheds, df["longitude"].to_numpy(), df["latitude"].to_numpy())
+        row = np.where(shed < 0, outside_row, shed).astype("int64")
+        bins = ticks_of(df["time"], window) // bin_ticks
+        # Flat index so one np.add.at call covers every (row, bin) pair.
+        np.add.at(
+            totals.reshape(-1),
+            row * num_bins + bins,
+            df["pathogen_level"].to_numpy(dtype="float64"),
+        )
+    return totals
+
+
+STATE_ORDER = ["S", "E", "I", "R"]
+
+
+def sewershed_seir_hourly(transitions, home_shed, agent_ids, n_sheds, window,
+                          cadence_sec=3600):
+    """Resident SEIR per sewershed per hourly bin; shape (n_sheds + 1, 4, num_bins).
+
+    Delegates to `seir_hourly` once per sewershed, passing only that shed's
+    residents and its resident count. Reusing it keeps one implementation of the
+    bin-close sampling convention rather than a second copy that could drift.
+
+    Because `home_shed` partitions the population — every agent has exactly one
+    home, Outside included — the rows sum to the global SEIR by construction.
+    """
+    home_shed = np.asarray(home_shed)
+    outside_row = n_sheds
+    rows = []
+    for row in range(n_sheds + 1):
+        member = home_shed == (OUTSIDE if row == outside_row else row)
+        residents = {
+            agent_ids[i]: transitions[agent_ids[i]]
+            for i in np.flatnonzero(member)
+            if agent_ids[i] in transitions
+        }
+        counts = seir_hourly(residents, int(member.sum()), window, cadence_sec)
+        rows.append([counts[s] for s in STATE_ORDER])
+    return np.array(rows, dtype="int64")
+
+
+SEWERSHED_ARTIFACTS = {
+    "sewersheds": "sewersheds.json",
+    "sewershedWw": "sewershed_ww.bin",
+    "sewershedSeir": "sewershed_seir.bin",
+    "agentHomeShed": "agent_home_shed.u8",
+}
+
+
+def encode_sewersheds(sheds, ww, seir, home_shed, venue_shed):
+    """Serialize the sewershed artifacts.
+
+    Returns (sewersheds_json, {filename: bytes}). `sewersheds.json` describes only
+    the real sewersheds; Outside is the remainder and appears only as the final
+    row of each matrix.
+    """
+    home_shed = np.asarray(home_shed)
+    venue_shed = np.asarray(venue_shed)
+    meta = {
+        "kind": "zcta-union",
+        "sewersheds": [
+            {
+                "id": shed.id,
+                "label": shed.label,
+                "residents": int((home_shed == i).sum()),
+                "venues": int((venue_shed == i).sum()),
+                "polygons": simplified_rings(shed),
+            }
+            for i, shed in enumerate(sheds)
+        ],
+        "outside": {
+            "label": "Outside sewersheds",
+            "residents": int((home_shed == OUTSIDE).sum()),
+            "venues": int((venue_shed == OUTSIDE).sum()),
+        },
+    }
+    seir_u16 = seir.astype("<u2")
+    if not np.array_equal(seir_u16.astype("int64"), seir):
+        raise ValueError("sewershed SEIR counts do not fit in uint16")
+    home_u8 = np.where(home_shed == OUTSIDE, OUTSIDE_U8, home_shed).astype("<u1")
+    return meta, {
+        "sewershed_ww.bin": np.ascontiguousarray(ww, dtype="<f4").tobytes(),
+        "sewershed_seir.bin": np.ascontiguousarray(seir_u16).tobytes(),
+        "agent_home_shed.u8": home_u8.tobytes(),
+    }

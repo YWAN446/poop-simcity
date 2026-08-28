@@ -8,6 +8,7 @@ import numpy as np
 import pyarrow.parquet as pq
 
 from poop_simcity_preprocess.profiles import get_profile
+from poop_simcity_preprocess.sewersheds import assign_points, load_sewersheds
 from poop_simcity_preprocess.window import make_window, mask_in_window
 
 FAILURES = []
@@ -28,6 +29,14 @@ def main(argv=None):
     p.add_argument("--bundle", required=True)
     p.add_argument("--dataset", required=True)
     p.add_argument("--profile", required=True)
+    p.add_argument("--shapefile-dir", default=None,
+                    help="Directory of <shed>_sewershed.shp files. Optional: when "
+                         "given (and the bundle has a sewershed layer), re-derives "
+                         "venue-to-sewershed assignment from the full-resolution "
+                         "geometry and checks it exactly against sewersheds.json. "
+                         "The sum-invariant checks below cannot catch a cross-shed "
+                         "permutation on their own, since they sum across rows "
+                         "before comparing; this check can, because it never sums.")
     args = p.parse_args(argv)
 
     profile = get_profile(args.profile)
@@ -113,6 +122,61 @@ def main(argv=None):
           len(agg["pathogenInflow"]) == len(agg["gridTicks"]))
     check("seirSampledAt is binEnd",
           agg.get("seirSampledAt") == "binEnd", f"{agg.get('seirSampledAt')!r}")
+
+    if "sewersheds" in manifest["artifacts"]:
+        meta = json.loads(open(os.path.join(args.bundle, "sewersheds.json")).read())
+        n_rows = len(meta["sewersheds"]) + 1
+        num_bins = len(agg["gridTicks"])
+
+        ww = _read(args.bundle, "sewershed_ww.bin", "<f4").reshape(n_rows, num_bins)
+        check("sewershed pathogen sums to the global inflow",
+              bool(np.allclose(ww.sum(axis=0), agg["pathogenInflow"], rtol=1e-4)),
+              f"max rel diff {np.max(np.abs(ww.sum(axis=0) - agg['pathogenInflow']) / np.maximum(np.array(agg['pathogenInflow']), 1e-12)):.2e}")
+
+        seir = _read(args.bundle, "sewershed_seir.bin", "<u2").reshape(n_rows, 4, num_bins)
+        ok = all(seir[:, s, :].sum(axis=0).tolist() == agg["seir"][name]
+                 for s, name in enumerate("SEIR"))
+        check("sewershed resident SEIR sums to the global SEIR", ok)
+
+        home = _read(args.bundle, "agent_home_shed.u8", "<u1")
+        check("one home sewershed per agent", len(home) == manifest["numAgents"])
+        check("home indices are valid or the Outside sentinel",
+              bool(set(np.unique(home)).issubset(set(range(len(meta["sewersheds"]))) | {255})))
+        # This is a round-trip check, not an assignment check: encode_sewersheds
+        # writes both sewersheds.json's "residents" and agent_home_shed.u8 from
+        # the same in-memory home_shed array, so it can only catch a dtype,
+        # sentinel-mapping or JSON-encoding fault - an assignment bug (e.g. two
+        # sheds' labels swapped) would corrupt both identically and still pass.
+        check("sewersheds.json resident counts round-trip against agent_home_shed.u8",
+              all(int((home == i).sum()) == s["residents"]
+                  for i, s in enumerate(meta["sewersheds"])))
+
+        # The three checks above all sum across sewersheds before comparing to a
+        # global total, so every one of them is blind to a cross-shed
+        # permutation (e.g. encina's events landing in point_loma's row): the
+        # totals are unchanged and the checks pass regardless. Only an
+        # independent re-derivation from the full-resolution geometry - never
+        # sewersheds.json's own simplified rings, which exist for rendering only
+        # and would need a fudge tolerance - can catch that. It's optional
+        # because it needs the shapefiles on disk, which a bundle's consumer may
+        # not have.
+        if args.shapefile_dir:
+            sheds = load_sewersheds(args.shapefile_dir)
+            vlon = _read(args.bundle, "venues_lon.f32", "<f4")
+            vlat = _read(args.bundle, "venues_lat.f32", "<f4")
+            venue_shed = assign_points(sheds, vlon, vlat)
+            rederived = [int((venue_shed == i).sum()) for i in range(len(sheds))]
+            rederived_outside = int((venue_shed == -1).sum())
+            recorded = [s["venues"] for s in meta["sewersheds"]]
+            recorded_outside = meta["outside"]["venues"]
+            check("venue sewershed assignment re-derived from full-resolution "
+                  "geometry matches sewersheds.json",
+                  rederived == recorded and rederived_outside == recorded_outside,
+                  f"rederived={rederived}+outside={rederived_outside} "
+                  f"recorded={recorded}+outside={recorded_outside}")
+        else:
+            print("SKIP  venue sewershed assignment vs. full-resolution geometry "
+                  "(pass --shapefile-dir to check)")
 
     tx = _read(args.bundle, "transmissions.bin", "<u2")
     check("transmissions.bin holds whole records", len(tx) % 3 == 0)

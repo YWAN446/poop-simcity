@@ -39,3 +39,7 @@ venv/
 Thumbs.db
 .idea/
 .vscode/
+
+# Vite local env overrides — holds the CARTO basemap key, which is per-developer
+# and should not be committed.
+app/.env.local

@@ -76,6 +76,31 @@ export interface WastewaterV2 {
   values: Float32Array; // row-major [region][bin]
 }
 
+export interface SewershedMeta {
+  id: string;
+  label: string;
+  residents: number;
+  venues: number;
+  /** polygons -> rings -> [lon, lat]. Simplified for rendering only. */
+  polygons: number[][][][];
+}
+
+export interface Sewersheds {
+  /** Provenance of the boundaries; "zcta-union" means ZIP-code unions, not pipe networks. */
+  kind: string;
+  sheds: SewershedMeta[];
+  outside: { label: string; residents: number; venues: number };
+  /** float32 [row][bin], row-major. Rows are `sheds` order with Outside last. */
+  ww: Float32Array;
+  /** uint16 [row][state][bin], states ordered S, E, I, R. */
+  seir: Uint16Array;
+  /** One byte per agent, index-aligned with `agentIds`; 255 means Outside. */
+  homeShed: Uint8Array;
+  numBins: number;
+  /** sheds.length + 1 — the extra row is Outside. */
+  rows: number;
+}
+
 export interface BundleV2 {
   base: string;
   manifest: ManifestV2;
@@ -88,6 +113,8 @@ export interface BundleV2 {
   transmissions: Transmissions;
   aggregates: Aggregates;
   wastewater: WastewaterV2;
+  /** Absent when the bundle ships no sewershed artifacts (e.g. dataset_00). */
+  sewersheds?: Sewersheds;
   poopLon(i: number): number;
   poopLat(i: number): number;
 }

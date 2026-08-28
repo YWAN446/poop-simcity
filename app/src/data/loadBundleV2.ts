@@ -1,6 +1,6 @@
 import type { Aggregates } from "../types";
 import type {
-  BundleV2, ManifestV2, PoopsV2, Stays, StayIndexEntry, StaySlice,
+  BundleV2, ManifestV2, PoopsV2, Sewersheds, SewershedMeta, Stays, StayIndexEntry, StaySlice,
   Transmissions, Venues, WastewaterV2,
 } from "../types2";
 
@@ -146,6 +146,39 @@ export async function loadBundleV2(
     },
   );
 
+  let sewersheds: Sewersheds | undefined;
+  if (a.sewersheds) {
+    const [metaRaw, wwBuf, seirBuf, homeBuf] = await Promise.all([
+      json("sewersheds"), buf("sewershedWw"), buf("sewershedSeir"), buf("agentHomeShed"),
+    ]);
+    // The artifact's key is `sewersheds`; the in-memory field is `sheds`. Map it
+    // explicitly rather than spreading, so the two names can never silently diverge.
+    const meta = metaRaw as {
+      kind: string;
+      sewersheds: SewershedMeta[];
+      outside: { label: string; residents: number; venues: number };
+    };
+    const rows = meta.sewersheds.length + 1;
+    const ww = new Float32Array(wwBuf);
+    if (ww.length % rows !== 0) {
+      throw new Error(
+        `sewershed_ww.bin has ${ww.length} values, not a multiple of ${rows} rows`,
+      );
+    }
+    const numBins = ww.length / rows;
+    const seir = new Uint16Array(seirBuf);
+    assertEqual(
+      "sewershed_seir.bin length vs rows * 4 states * numBins",
+      { "seir.length": seir.length, "rows * 4 * numBins": rows * 4 * numBins },
+    );
+    sewersheds = {
+      kind: meta.kind,
+      sheds: meta.sewersheds,
+      outside: meta.outside,
+      ww, seir, homeShed: new Uint8Array(homeBuf), numBins, rows,
+    };
+  }
+
   const [minLon, minLat, maxLon, maxLat] = manifest.bbox;
   return {
     base,
@@ -159,6 +192,7 @@ export async function loadBundleV2(
     transmissions,
     aggregates: aggregates as Aggregates,
     wastewater,
+    sewersheds,
     poopLon: (i) => minLon + (poops.lonQ[i] / U16_MAX) * (maxLon - minLon),
     poopLat: (i) => minLat + (poops.latQ[i] / U16_MAX) * (maxLat - minLat),
   };

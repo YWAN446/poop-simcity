@@ -38,6 +38,8 @@ function ReadyV2({ bundle }: { bundle: BundleV2 }) {
   // it covers the map in polygons and is better opted into.
   const [flags, setFlags] = useState<LayerFlags>({
     agents: true, poops: true, venues: true, wastewater: false, arcs: true,
+    // Cheap (a handful of polygons) and the whole point of this feature, so on by default.
+    sewersheds: true,
   });
   const venueCounts = useMemo(() => countVenuesByTypeV2(bundle), [bundle]);
   const frame = useMemo(() => createAgentFrame(bundle), [bundle]);
@@ -46,7 +48,10 @@ function ReadyV2({ bundle }: { bundle: BundleV2 }) {
   const agg = useMemo(() => scopedAggregates(bundle, scope), [bundle, scope]);
   return (
     <>
-      <MapViewV2 bundle={bundle} frame={frame} tick={tick} flags={flags} />
+      <MapViewV2
+        bundle={bundle} frame={frame} tick={tick} flags={flags}
+        scope={scope} onSelectScope={setScope}
+      />
       <Legend venueCounts={venueCounts} />
       <Hud
         manifest={bundle.manifest}
@@ -75,7 +80,7 @@ function ReadyV2({ bundle }: { bundle: BundleV2 }) {
         {playing ? "Pause" : "Play"}
       </button>
       <Timeline manifest={bundle.manifest} tick={tick} onSeek={seek} />
-      <LayerToggles flags={flags} onChange={setFlags} />
+      <LayerToggles flags={flags} onChange={setFlags} hasSewersheds={bundle.sewersheds != null} />
     </>
   );
 }

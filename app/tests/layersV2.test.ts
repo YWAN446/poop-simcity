@@ -3,11 +3,11 @@ import { describe, it, expect } from "vitest";
 import {
   agentBinaryData, countVenuesByTypeV2, poopDataV2, venueOccupancyData,
   wastewaterDataV2, wastewaterBinIndexV2, wastewaterGlobalMaxV2,
-  transmissionArcDataV2, infectionGlowData,
+  transmissionArcDataV2, infectionGlowData, sewershedPolygonData,
 } from "../src/render/layersV2";
 import { createAgentFrame, updateAgentFrame, type AgentFrame } from "../src/render/agentFrame";
 import { Presence } from "../src/sim/dwell";
-import type { BundleV2 } from "../src/types2";
+import type { BundleV2, Sewersheds } from "../src/types2";
 
 function makeBundle(): BundleV2 {
   return {
@@ -328,5 +328,44 @@ describe("transmissionArcDataV2", () => {
     const arcs = transmissionArcDataV2(b, makeFrame(), 500);
     expect(arcs).toHaveLength(1); // tick 10 too far in the past, 9999 in the future
     expect(arcs[0].age).toBeCloseTo(0, 5);
+  });
+});
+
+function sheds(): Sewersheds {
+  return {
+    kind: "zcta-union",
+    sheds: [
+      { id: "a", label: "A", residents: 1, venues: 1,
+        polygons: [[[[0, 0], [0, 1], [1, 1], [0, 0]]], [[[5, 5], [5, 6], [6, 6], [5, 5]]]] },
+      { id: "b", label: "B", residents: 1, venues: 1,
+        polygons: [[[[9, 9], [9, 10], [10, 10], [9, 9]]]] },
+    ],
+    outside: { label: "Outside sewersheds", residents: 0, venues: 0 },
+    ww: new Float32Array(), seir: new Uint16Array(),
+    homeShed: new Uint8Array(), numBins: 0, rows: 3,
+  };
+}
+
+describe("sewershedPolygonData", () => {
+  it("emits one datum per polygon, tagged with its sewershed", () => {
+    const data = sewershedPolygonData(sheds());
+    expect(data).toHaveLength(3);                       // A has two polygons, B one
+    expect(data.map((d) => d.id)).toEqual(["a", "a", "b"]);
+    expect(data[0].label).toBe("A");
+  });
+
+  it("keeps rings intact so holes survive to the renderer", () => {
+    const withHole = sheds();
+    withHole.sheds[1].polygons = [[
+      [[0, 0], [0, 10], [10, 10], [0, 0]],
+      [[4, 4], [4, 5], [5, 5], [4, 4]],
+    ]];
+    const data = sewershedPolygonData(withHole);
+    const b = data.find((d) => d.id === "b")!;
+    expect(b.rings).toHaveLength(2);
+  });
+
+  it("returns nothing for a bundle with no sewersheds", () => {
+    expect(sewershedPolygonData(undefined)).toEqual([]);
   });
 });

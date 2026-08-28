@@ -56,6 +56,14 @@ function ReadyV2({ bundle }: { bundle: BundleV2 }) {
         onSpeed={setTicksPerSecond}
         coverageLine={coverageLabel(bundle.manifest)}
         scopeLine={scopeHeading(bundle, scope)}
+        scopeSelector={bundle.sewersheds && (
+          <SewershedSelector
+            options={options}
+            selected={scope}
+            onChange={setScope}
+            kind={bundle.sewersheds.kind}
+          />
+        )}
       />
       <button
         className="play-btn"
@@ -68,14 +76,6 @@ function ReadyV2({ bundle }: { bundle: BundleV2 }) {
       </button>
       <Timeline manifest={bundle.manifest} tick={tick} onSeek={seek} />
       <LayerToggles flags={flags} onChange={setFlags} />
-      {bundle.sewersheds && (
-        <SewershedSelector
-          options={options}
-          selected={scope}
-          onChange={setScope}
-          kind={bundle.sewersheds.kind}
-        />
-      )}
     </>
   );
 }

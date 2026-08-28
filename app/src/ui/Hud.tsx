@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Aggregates } from "../types";
 import { hourBinIndex } from "../sim/timeMapping";
 import { SeirChart } from "./SeirChart";
@@ -9,7 +10,7 @@ export interface HudManifest {
 }
 
 export function Hud({
-  manifest, agg, tick, ticksPerSecond, onSpeed, coverageLine, scopeLine,
+  manifest, agg, tick, ticksPerSecond, onSpeed, coverageLine, scopeLine, scopeSelector,
 }: {
   manifest: HudManifest; agg: Aggregates; tick: number;
   ticksPerSecond: number; onSpeed: (v: number) => void;
@@ -19,6 +20,10 @@ export function Hud({
   /** Which sewershed scope the charts below are drawn from (see `scopeHeading`);
    * omitted when the bundle has no sewersheds. */
   scopeLine?: string;
+  /** The sewershed scope control itself (a `SewershedSelector`), rendered in
+   * normal flow so it can never overlap other absolutely-positioned HUD
+   * widgets; omitted when the bundle has no sewersheds. */
+  scopeSelector?: ReactNode;
 }) {
   // Clamp the hourly bin; each chart shows its own date + values readout below it.
   const bin = Math.min(
@@ -29,6 +34,7 @@ export function Hud({
     <div className="hud">
       {coverageLine != null && <div className="hud-coverage">{coverageLine}</div>}
       {scopeLine != null && <div className="hud-scope">Showing {scopeLine}</div>}
+      {scopeSelector != null && scopeSelector}
       <SeirChart agg={agg} hourBin={bin} />
       <WastewaterChart agg={agg} hourBin={bin} />
       <label className="hud-speed">

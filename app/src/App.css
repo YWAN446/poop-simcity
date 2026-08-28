@@ -79,11 +79,11 @@ html, body, #root { margin: 0; height: 100%; }
   background: rgba(255,255,255,0.08); border-radius: 10px; padding: 14px 16px;
   font: 13px ui-monospace, monospace; white-space: pre; color: #f0f0f0; }
 .dataset-error-detail { opacity: 0.6; font-size: 12px; }
-/* Bottom-left, above the play button — shown only when the bundle ships
-   sewersheds (see SewershedSelector), so dataset_00 never renders this. */
-.shed-selector { position: absolute; left: 10px; bottom: 64px; z-index: 3; max-width: 220px;
-  background: rgba(20,20,26,0.72); border-radius: 12px; color: #eee;
-  backdrop-filter: blur(6px); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+/* In-flow inside the HUD panel (see Hud's `scopeSelector` prop) — shown only
+   when the bundle ships sewersheds (see SewershedSelector), so dataset_00
+   never renders this. No panel chrome of its own: it lives inside the HUD's
+   panel, so a second nested background/blur would look wrong. */
+.shed-selector { max-width: 400px; display: flex; flex-direction: column; gap: 6px; }
 .shed-selector-label { font: 700 10px system-ui; letter-spacing: 0.05em;
   text-transform: uppercase; opacity: 0.6; }
 .shed-selector-note { text-transform: none; letter-spacing: 0; }

@@ -60,7 +60,7 @@ function ReadyV2({ bundle }: { bundle: BundleV2 }) {
         ticksPerSecond={ticksPerSecond}
         onSpeed={setTicksPerSecond}
         coverageLine={coverageLabel(bundle.manifest)}
-        scopeLine={scopeHeading(bundle, scope)}
+        scopeLine={bundle.sewersheds && scopeHeading(bundle, scope)}
         scopeSelector={bundle.sewersheds && (
           <SewershedSelector
             options={options}

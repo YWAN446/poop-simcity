@@ -223,4 +223,18 @@ describe("sewersheds", () => {
     });
     await expect(loadBundleV2("/data/t", fetchFn)).rejects.toThrow(/sewershed_ww/);
   });
+
+  it("rejects a sewershed numBins that disagrees with aggregates.gridTicks.length", async () => {
+    // 2 rows x 2 bins, but MANIFEST's aggregates.json has a single-bin gridTicks — a
+    // stale sewershed_ww.bin regenerated against a different window than aggregates.json.
+    const manifest = { ...MANIFEST, artifacts: { ...ARTIFACTS, ...SHED_ARTIFACTS } };
+    const fetchFn = fakeFetch({
+      "manifest.json": manifest, ...SHED_FILES,
+      "sewershed_ww.bin": bin(new Float32Array([5, 6, 7, 8])),
+      "sewershed_seir.bin": bin(new Uint16Array([
+        2, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0,
+      ])),
+    });
+    await expect(loadBundleV2("/data/t", fetchFn)).rejects.toThrow(/numBins/);
+  });
 });

@@ -24,7 +24,8 @@ const REGENERATE_COMMANDS: Record<string, string> = {
     "  --clean-keep-fraction 0.3 \\",
     "  --shapefile-dir ../san_diego_shapefiles",
     "python verify_bundle_v2.py --bundle ../app/public/data/dataset_sdc-10k \\",
-    "  --dataset ../dataset_sdc-10k --profile dataset_sdc-10k",
+    "  --dataset ../dataset_sdc-10k --profile dataset_sdc-10k \\",
+    "  --shapefile-dir ../san_diego_shapefiles",
   ].join("\n"),
 };
 

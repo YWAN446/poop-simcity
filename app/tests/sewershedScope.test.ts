@@ -84,8 +84,15 @@ describe("scopedAggregates", () => {
 });
 
 describe("scopeHeading", () => {
-  it("names the scope and its resident count", () => {
-    expect(scopeHeading(makeBundle(), "encina")).toMatch(/Encina.*6/);
+  it("names the scope, its resident count, and its venue count", () => {
+    // Encina in makeBundle() has 6 residents and 3 venues — both must appear, since the
+    // wastewater curve is venue-driven, not resident-driven (see scopeHeading's docstring).
+    expect(scopeHeading(makeBundle(), "encina")).toBe("Encina — 6 residents, 3 venues");
+  });
+
+  it("names Outside with its own resident and venue counts", () => {
+    expect(scopeHeading(makeBundle(), OUTSIDE_SCOPE))
+      .toBe("Outside sewersheds — 4 residents, 1 venues");
   });
 
   it("says nothing extra for All", () => {

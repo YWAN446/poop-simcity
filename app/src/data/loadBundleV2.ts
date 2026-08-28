@@ -166,6 +166,10 @@ export async function loadBundleV2(
       );
     }
     const numBins = ww.length / rows;
+    assertEqual(
+      "sewershed numBins vs aggregates.gridTicks.length",
+      { "ww.length / rows": numBins, "aggregates.gridTicks.length": (aggregates as Aggregates).gridTicks.length },
+    );
     const seir = new Uint16Array(seirBuf);
     assertEqual(
       "sewershed_seir.bin length vs rows * 4 states * numBins",

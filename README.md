@@ -142,7 +142,8 @@ python -m poop_simcity_preprocess.cli \
   --clean-keep-fraction 0.3 \
   --shapefile-dir ../san_diego_shapefiles
 python verify_bundle_v2.py --bundle ../app/public/data/dataset_sdc-10k \
-  --dataset ../dataset_sdc-10k --profile dataset_sdc-10k
+  --dataset ../dataset_sdc-10k --profile dataset_sdc-10k \
+  --shapefile-dir ../san_diego_shapefiles
 ```
 
 `--shapefile-dir` points at a directory of `<shed>_sewershed.shp` files (one
@@ -152,6 +153,14 @@ wastewater/SEIR artifacts (`sewersheds.json`, `sewershed_ww.bin`,
 manifest. It's optional: omitting the flag produces a bundle with no
 sewershed layer at all (schemaVersion 2 bundles worked this way before this
 layer existed).
+
+`san_diego_shapefiles/` (committed at the repo root, ~1.2 MB across 18 files)
+is that directory: three treatment-plant service areas — Encina, Point Loma,
+and South Bay — each a set of Census ZCTA polygons that the preprocessor
+dissolves into a single boundary per plant. It's committed, unlike the
+generated bundle, because it's source data: the preprocessor derives the
+sewershed boundaries and venue/agent assignments from it, but can't
+regenerate it from anything else already in the repo.
 
 The `--window-start`/`--window-end` bounds cover January 1 through July 31, 2024 —
 about 99.3% of all disease exposures in the source data — rather than the full

@@ -114,6 +114,29 @@ def main(argv=None):
     check("seirSampledAt is binEnd",
           agg.get("seirSampledAt") == "binEnd", f"{agg.get('seirSampledAt')!r}")
 
+    if "sewersheds" in manifest["artifacts"]:
+        meta = json.loads(open(os.path.join(args.bundle, "sewersheds.json")).read())
+        n_rows = len(meta["sewersheds"]) + 1
+        num_bins = len(agg["gridTicks"])
+
+        ww = _read(args.bundle, "sewershed_ww.bin", "<f4").reshape(n_rows, num_bins)
+        check("sewershed pathogen sums to the global inflow",
+              bool(np.allclose(ww.sum(axis=0), agg["pathogenInflow"], rtol=1e-4)),
+              f"max rel diff {np.max(np.abs(ww.sum(axis=0) - agg['pathogenInflow']) / np.maximum(np.array(agg['pathogenInflow']), 1e-12)):.2e}")
+
+        seir = _read(args.bundle, "sewershed_seir.bin", "<u2").reshape(n_rows, 4, num_bins)
+        ok = all(seir[:, s, :].sum(axis=0).tolist() == agg["seir"][name]
+                 for s, name in enumerate("SEIR"))
+        check("sewershed resident SEIR sums to the global SEIR", ok)
+
+        home = _read(args.bundle, "agent_home_shed.u8", "<u1")
+        check("one home sewershed per agent", len(home) == manifest["numAgents"])
+        check("home indices are valid or the Outside sentinel",
+              bool(set(np.unique(home)).issubset(set(range(len(meta["sewersheds"]))) | {255})))
+        check("resident counts in sewersheds.json match agent_home_shed.u8",
+              all(int((home == i).sum()) == s["residents"]
+                  for i, s in enumerate(meta["sewersheds"])))
+
     tx = _read(args.bundle, "transmissions.bin", "<u2")
     check("transmissions.bin holds whole records", len(tx) % 3 == 0)
     check("transmission count matches the manifest",

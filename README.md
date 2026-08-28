@@ -126,7 +126,7 @@ the paper's project: <https://github.com/onspatial/wastewater-based-epidemiology
 
 A second, larger simulation run — 10,000 agents, 12,134 venues, San Diego County —
 is supported via `schemaVersion 2` of the bundle format. Unlike `dataset_00`, this
-bundle is **not committed** to the repo (it's 89.1 MB across 19 files; see
+bundle is **not committed** to the repo (it's ~89.4 MB across 23 files; see
 `.gitignore`), so it must be generated locally. With the raw `dataset_sdc-10k/` parquet folder
 (`Checkin.parquet`, `DiseasesStatus.parquet`, `Poopin.parquet`) present at the repo
 root, from `preprocess/`:
@@ -139,10 +139,19 @@ python -m poop_simcity_preprocess.cli \
   --profile dataset_sdc-10k \
   --window-start 2024-01-01T00:00:00 \
   --window-end 2024-07-31T23:55:00 \
-  --clean-keep-fraction 0.3
+  --clean-keep-fraction 0.3 \
+  --shapefile-dir ../san_diego_shapefiles
 python verify_bundle_v2.py --bundle ../app/public/data/dataset_sdc-10k \
   --dataset ../dataset_sdc-10k --profile dataset_sdc-10k
 ```
+
+`--shapefile-dir` points at a directory of `<shed>_sewershed.shp` files (one
+dissolved ZCTA-union polygon per treatment plant) and adds the per-sewershed
+wastewater/SEIR artifacts (`sewersheds.json`, `sewershed_ww.bin`,
+`sewershed_seir.bin`, `agent_home_shed.u8`) plus a `sewershedKind` field on the
+manifest. It's optional: omitting the flag produces a bundle with no
+sewershed layer at all (schemaVersion 2 bundles worked this way before this
+layer existed).
 
 The `--window-start`/`--window-end` bounds cover January 1 through July 31, 2024 —
 about 99.3% of all disease exposures in the source data — rather than the full

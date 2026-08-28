@@ -10,6 +10,8 @@ import { DatasetError } from "./DatasetError";
 import { coverageLabel } from "./coverageLabel";
 import { countVenuesByTypeV2 } from "../render/layersV2";
 import { createAgentFrame } from "../render/agentFrame";
+import { ALL_SCOPE, scopeOptions, scopedAggregates, scopeHeading, type ScopeId } from "../sim/sewershedScope";
+import { SewershedSelector } from "./SewershedSelector";
 import type { DatasetEntry } from "../data/datasets";
 import type { BundleV2 } from "../types2";
 
@@ -39,17 +41,21 @@ function ReadyV2({ bundle }: { bundle: BundleV2 }) {
   });
   const venueCounts = useMemo(() => countVenuesByTypeV2(bundle), [bundle]);
   const frame = useMemo(() => createAgentFrame(bundle), [bundle]);
+  const [scope, setScope] = useState<ScopeId>(ALL_SCOPE);
+  const options = useMemo(() => scopeOptions(bundle), [bundle]);
+  const agg = useMemo(() => scopedAggregates(bundle, scope), [bundle, scope]);
   return (
     <>
       <MapViewV2 bundle={bundle} frame={frame} tick={tick} flags={flags} />
       <Legend venueCounts={venueCounts} />
       <Hud
         manifest={bundle.manifest}
-        agg={bundle.aggregates}
+        agg={agg}
         tick={tick}
         ticksPerSecond={ticksPerSecond}
         onSpeed={setTicksPerSecond}
         coverageLine={coverageLabel(bundle.manifest)}
+        scopeLine={scopeHeading(bundle, scope)}
       />
       <button
         className="play-btn"
@@ -62,6 +68,14 @@ function ReadyV2({ bundle }: { bundle: BundleV2 }) {
       </button>
       <Timeline manifest={bundle.manifest} tick={tick} onSeek={seek} />
       <LayerToggles flags={flags} onChange={setFlags} />
+      {bundle.sewersheds && (
+        <SewershedSelector
+          options={options}
+          selected={scope}
+          onChange={setScope}
+          kind={bundle.sewersheds.kind}
+        />
+      )}
     </>
   );
 }

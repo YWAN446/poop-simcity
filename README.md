@@ -61,6 +61,26 @@ You can also deep-link a run with `?dataset=dataset_sdc-10k`, and a build can pi
 own default — `npm run build:sdc-10k` opens on San Diego, which is how that demo is
 deployed, while a plain `npm run build` opens on Atlanta.
 
+### Basemap API key (optional, removes the watermark)
+
+CARTO moved their free basemap tiles behind an API key. Without one the map still
+renders, but **every tile carries an "API KEY REQUIRED" watermark** — CARTO renders
+it into the PNG at source, so clearing the browser cache does not help.
+
+To remove it, request a key at <https://carto.com/basemaps/apikey> (a short form;
+the key is emailed back, no CARTO account needed). The free tier allows 5M tile
+requests a month and covers research, teaching and personal projects. Then create
+`app/.env.local`:
+
+```
+VITE_CARTO_API_KEY=your-key-here
+```
+
+That file is gitignored, so the key stays out of the repo. It is read at **build
+time**, so the deployed site only carries it if `npm run deploy` runs on a machine
+where it is set. Leaving it unset is safe — the map degrades to watermarked tiles
+rather than breaking.
+
 ### Controls
 - **Play / Pause** (top-left) and the **Speed** slider (HUD) control playback.
 - **Timeline** (bottom): drag to seek anywhere in the year; the red band marks the

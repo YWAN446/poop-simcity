@@ -13,7 +13,7 @@ plays back a simulated year of 1,000 agents in Fulton County — agents moving
 between venues, an SEIR outbreak, defecation events, and the resulting wastewater
 pathogen signal — on a real map with a scrubbable timeline.
 
-**v2 deployed, in review ([PR #1](https://github.com/YWAN446/poop-simcity/pull/1)):** a
+**v2 shipped ([PR #1](https://github.com/YWAN446/poop-simcity/pull/1), merged):** a
 second run, `dataset_sdc-10k` — 10,000 agents in San Diego County — whose check-ins
 carry a `CheckoutTime`, so agents now **dwell at venues for real durations** instead
 of gliding continuously. Both runs are served from the single
@@ -74,6 +74,20 @@ dataset switcher.
 - [x] HUD now discloses the playback window, daily recovery resolution, and clean-poop
       downsampling — all derived from the manifest rather than hardcoded.
 
+### Sewershed-specific signals (PR #2, merged)
+- [x] **Three real treatment-plant sewersheds** (Encina, Point Loma, South Bay) from
+      ZCTA-union shapefiles, dissolved and drawn as a toggleable boundary layer.
+- [x] **Per-sewershed wastewater and resident-case curves** — selecting a sewershed
+      re-scopes both HUD charts. Wastewater is assigned by each event's own
+      coordinates; residents by their most-dwelled Apartment. Deliberately different
+      rules, because pathogen lands where people go and cases belong to where people live.
+- [x] Surfaces the mismatch that motivates the feature: **South Bay holds 1.3% of
+      residents but receives 2.9% of the pathogen**, having 397 venues against 127
+      residents.
+- [x] Verified by two sum invariants (per-shed series must reconstruct the global
+      series) plus a permutation-immune re-derivation of venue assignment from
+      full-resolution geometry.
+
 ---
 
 ## Planned
@@ -89,15 +103,13 @@ dataset switcher.
 ### Bigger features
 - [ ] **Challenge mode** — place a budget of wastewater sensors on the grid and score outbreak
       detection (lead time / accuracy) vs ground truth. The wastewater layer already uses a
-      generic regions × time-series interface to support this.
-- [ ] **Real sewersheds** — swap the spatial-grid proxy for real sewershed GIS shapefiles
-      (drop-in GeoJSON) when available.
+      generic regions × time-series interface to support this. Now also scoreable
+      per sewershed, not just per grid cell.
 - [ ] **Social-network layer** — visualize the friend/family and work graphs (`social_links`,
       `.dgs`) and infection paths through them.
 - [ ] **Scenario switcher** — compare the paper's infection-rate scenarios (0.1 / 0.15 / 0.2 / 0.25)
-      by preprocessing multiple runs and letting the user switch datasets. Now doubly wanted:
-      two runs exist (`dataset_00`, `dataset_sdc-10k`) but the app targets only the latter,
-      and they use different bundle schema versions.
+      by preprocessing multiple runs. The dataset switcher already handles two runs across two
+      bundle schema versions, so this is mostly a matter of building the extra bundles.
 - [ ] **Full-year playback for `dataset_sdc-10k`** — the Aug–Nov tail and the quiet months are
       cut to keep the bundle to one download; time-sharded lazy loading would restore them.
 - [ ] **Dwell-aware transmission attribution** — with exact exposure times and known dwell
